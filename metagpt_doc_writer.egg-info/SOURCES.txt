@@ -1,0 +1,8 @@
+pyproject.toml
+setup.py
+metagpt_doc_writer/__init__.py
+metagpt_doc_writer.egg-info/PKG-INFO
+metagpt_doc_writer.egg-info/SOURCES.txt
+metagpt_doc_writer.egg-info/dependency_links.txt
+metagpt_doc_writer.egg-info/requires.txt
+metagpt_doc_writer.egg-info/top_level.txt

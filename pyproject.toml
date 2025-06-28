@@ -1,0 +1,9 @@
+
+[project]
+name = "metagpt-doc-writer"
+version = "0.1.0"
+dependencies = [
+    "metagpt",
+    "pydantic",
+    "pytest",
+]

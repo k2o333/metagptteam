@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: metagpt-doc-writer
+Version: 0.1.0
+Requires-Dist: metagpt
+Requires-Dist: pydantic
+Requires-Dist: pytest
