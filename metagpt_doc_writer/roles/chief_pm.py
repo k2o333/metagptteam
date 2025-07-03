@@ -5,8 +5,12 @@ from metagpt_doc_writer.actions.review_and_command import ReviewAndCommand
 from metagpt_doc_writer.schemas.doc_structures import FullDraft, ReviewNotes
 
 class ChiefPM(Role):
-    def __init__(self, name="ChiefPM", profile="Chief Product Manager", goal="Oversee the document generation process and ensure quality", **kwargs):
-        super().__init__(name, profile, goal, **kwargs)
+    name: str = "ChiefPM"
+    profile: str = "Chief Product Manager"
+    goal: str = "Oversee the document generation process and ensure quality"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.set_actions([ReviewAndCommand])
         self._watch({FullDraft}) # Watches for full drafts
 

@@ -5,9 +5,14 @@ from metagpt_doc_writer.actions.write_section import WriteSection
 from metagpt_doc_writer.schemas.doc_structures import ApprovedTask, DraftSection
 
 class TechnicalWriter(Role):
-    def __init__(self, name="TechnicalWriter", profile="Technical Writer", goal="Write high-quality technical documentation", **kwargs):
-        super().__init__(name, profile, goal, **kwargs)
-        self.set_actions([WriteSection])
+    name: str = "TechnicalWriter"
+    profile: str = "Technical Writer"
+    goal: str = "Write high-quality technical documentation"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Pass the LLM instance to the WriteSection action
+        self.set_actions([WriteSection(llm=self.llm)])
         self._watch({ApprovedTask}) # Watches for approved tasks
 
     async def _act(self) -> Message:

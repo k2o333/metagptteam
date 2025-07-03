@@ -5,8 +5,12 @@ from metagpt_doc_writer.actions.generate_changeset import GenerateChangeSet
 from metagpt_doc_writer.schemas.doc_structures import ReviewNotes, FullDraft, ValidatedChangeSet
 
 class ChangeSetGenerator(Role):
-    def __init__(self, name="ChangeSetGenerator", profile="ChangeSet Generator", goal="Generate validated change sets from review notes", **kwargs):
-        super().__init__(name, profile, goal, **kwargs)
+    name: str = "ChangeSetGenerator"
+    profile: str = "ChangeSet Generator"
+    goal: str = "Generate validated change sets from review notes"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.set_actions([GenerateChangeSet])
         self._watch({ReviewNotes}) # Watches for review notes
 

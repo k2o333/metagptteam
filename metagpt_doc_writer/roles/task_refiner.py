@@ -5,8 +5,12 @@ from metagpt_doc_writer.actions.refine_task import RefineTask
 from metagpt_doc_writer.schemas.doc_structures import InitialTask, RefinedTask
 
 class TaskRefiner(Role):
-    def __init__(self, name="TaskRefiner", profile="Task Refiner", goal="Refine initial tasks to make them more detailed", **kwargs):
-        super().__init__(name, profile, goal, **kwargs)
+    name: str = "TaskRefiner"
+    profile: str = "Task Refiner"
+    goal: str = "Refine initial tasks to make them more detailed"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.set_actions([RefineTask])
         self._watch({InitialTask}) # Watches for initial tasks
 

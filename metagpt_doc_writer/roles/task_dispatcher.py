@@ -5,8 +5,12 @@ from metagpt_doc_writer.actions.generate_initial_task import GenerateInitialTask
 from metagpt_doc_writer.schemas.doc_structures import ModuleOutline, InitialTask
 
 class TaskDispatcher(Role):
-    def __init__(self, name="TaskDispatcher", profile="Task Dispatcher", goal="Generate initial tasks from module outlines", **kwargs):
-        super().__init__(name, profile, goal, **kwargs)
+    name: str = "TaskDispatcher"
+    profile: str = "Task Dispatcher"
+    goal: str = "Generate initial tasks from module outlines"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.set_actions([GenerateInitialTask])
         self._watch({ModuleOutline}) # Watches for module outlines
 
