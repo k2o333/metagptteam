@@ -1,12 +1,12 @@
 
 from metagpt.logs import logger
 import uuid
-from metagpt.roles import Role
+from .base_role import MyBaseRole
 from metagpt.schema import Message
 from metagpt_doc_writer.schemas.doc_structures import DraftSection, FullDraft
 from pathlib import Path
 
-class DocAssembler(Role):
+class DocAssembler(MyBaseRole):
     name: str = "DocAssembler"
     profile: str = "Document Assembler"
     goal: str = "Assemble and finalize documents"

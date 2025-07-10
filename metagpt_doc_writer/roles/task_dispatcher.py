@@ -1,10 +1,10 @@
 
-from metagpt.roles import Role
+from .base_role import MyBaseRole
 from metagpt.schema import Message
 from metagpt_doc_writer.actions.generate_initial_task import GenerateInitialTask
 from metagpt_doc_writer.schemas.doc_structures import ModuleOutline, InitialTask
 
-class TaskDispatcher(Role):
+class TaskDispatcher(MyBaseRole):
     name: str = "TaskDispatcher"
     profile: str = "Task Dispatcher"
     goal: str = "Generate initial tasks from module outlines"

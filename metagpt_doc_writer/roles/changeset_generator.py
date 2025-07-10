@@ -1,25 +1,29 @@
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/changeset_generator.py
 
-from metagpt.roles import Role
+from .base_role import MyBaseRole
 from metagpt.schema import Message
 from metagpt_doc_writer.actions.generate_changeset import GenerateChangeSet
-from metagpt_doc_writer.schemas.doc_structures import ReviewNotes, FullDraft, ValidatedChangeSet
+from metagpt_doc_writer.schemas.doc_structures import ReviewNotes, ValidatedChangeSet, FullDraft
 
-class ChangeSetGenerator(Role):
+class ChangeSetGenerator(MyBaseRole):
     name: str = "ChangeSetGenerator"
     profile: str = "ChangeSet Generator"
-    goal: str = "Generate validated change sets from review notes"
+    goal: str = "Convert natural language review notes into a validated changeset."
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_actions([GenerateChangeSet])
-        self._watch({ReviewNotes}) # Watches for review notes
+        self._watch({ReviewNotes})
 
     async def _act(self) -> Message:
-        # In a real scenario, this would be triggered by a message containing ReviewNotes.
-        # We would then run the GenerateChangeSet action.
-        print("ChangeSetGenerator is acting...")
-        # Placeholder for real implementation
-        review_notes_msg = self.rc.memory.get_by_class(ReviewNotes)[-1]
-        full_draft_msg = self.rc.memory.get_by_class(FullDraft)[-1] # Assumes draft is in memory
-        validated_changeset = await self.actions[0].run(review_notes_msg.instruct_content, full_draft_msg.instruct_content)
+        # Correctly filter messages from memory
+        memories = self.get_memories()
+        review_notes_msg = [m for m in memories if isinstance(m.instruct_content, ReviewNotes)][-1]
+        full_draft_msg = [m for m in memories if isinstance(m.instruct_content, FullDraft)][-1]
+        
+        validated_changeset = await self.actions[0].run(
+            review_notes=review_notes_msg.instruct_content,
+            full_draft=full_draft_msg.instruct_content
+        )
+        
         return Message(content="Validated changeset generated", instruct_content=validated_changeset)

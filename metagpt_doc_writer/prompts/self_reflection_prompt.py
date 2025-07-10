@@ -23,5 +23,4 @@ Please perform the following actions and respond in a single, valid JSON object:
 3.  **Revise**: If the total score is less than 13, provide a revised, improved version of the output. Otherwise, the value should be an empty string.
 
 **Your JSON Response**:
-"""
-)
+""")

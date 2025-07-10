@@ -1,10 +1,10 @@
 
-from metagpt.roles import Role
+from .base_role import MyBaseRole
 from metagpt.schema import Message
 from metagpt_doc_writer.actions.refine_task import RefineTask
 from metagpt_doc_writer.schemas.doc_structures import InitialTask, RefinedTask
 
-class TaskRefiner(Role):
+class TaskRefiner(MyBaseRole):
     name: str = "TaskRefiner"
     profile: str = "Task Refiner"
     goal: str = "Refine initial tasks to make them more detailed"

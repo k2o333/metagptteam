@@ -1,0 +1,382 @@
+{
+    "env": {
+        "desc": "",
+        "roles": {
+            "Chief Product Manager": {
+                "name": "ChiefPM",
+                "profile": "Chief Product Manager",
+                "goal": "Oversee the entire document generation process and ensure final quality.",
+                "constraints": "",
+                "desc": "",
+                "is_human": false,
+                "role_id": "",
+                "states": [
+                    "0. ReviewAndCommand"
+                ],
+                "actions": [
+                    {
+                        "name": "ReviewAndCommand",
+                        "i_context": "",
+                        "prefix": "You are a Chief Product Manager, named ChiefPM, your goal is Oversee the entire document generation process and ensure final quality.. ",
+                        "desc": "",
+                        "__module_class_name": "metagpt_doc_writer.actions.review_and_command.ReviewAndCommand"
+                    }
+                ],
+                "rc": {
+                    "memory": {
+                        "storage": [
+                            {
+                                "id": "23bd499e140b4c34804e93c97ac1979c",
+                                "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                                "instruct_content": null,
+                                "role": "Human",
+                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                "sent_from": "",
+                                "send_to": [
+                                    "<all>"
+                                ]
+                            }
+                        ],
+                        "index": {
+                            "metagpt.actions.add_requirement.UserRequirement": [
+                                {
+                                    "id": "23bd499e140b4c34804e93c97ac1979c",
+                                    "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                                    "instruct_content": null,
+                                    "role": "Human",
+                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                    "sent_from": "",
+                                    "send_to": [
+                                        "<all>"
+                                    ]
+                                }
+                            ]
+                        },
+                        "ignore_id": false
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "state": -1,
+                    "watch": [
+                        "metagpt_doc_writer.schemas.doc_structures.FullDraft",
+                        "metagpt_doc_writer.schemas.doc_structures.RefinedTask",
+                        "metagpt.actions.add_requirement.UserRequirement"
+                    ],
+                    "react_mode": "react",
+                    "max_react_loop": 1
+                },
+                "addresses": [
+                    "metagpt_doc_writer.roles.chief_pm.ChiefPM",
+                    "ChiefPM"
+                ],
+                "planner": {
+                    "plan": {
+                        "goal": "",
+                        "context": "",
+                        "tasks": [],
+                        "task_map": {},
+                        "current_task_id": ""
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "auto_run": false
+                },
+                "recovered": false,
+                "latest_observed_msg": {
+                    "id": "23bd499e140b4c34804e93c97ac1979c",
+                    "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                    "instruct_content": null,
+                    "role": "Human",
+                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                    "sent_from": "",
+                    "send_to": [
+                        "<all>"
+                    ]
+                },
+                "__module_class_name": "metagpt_doc_writer.roles.chief_pm.ChiefPM"
+            },
+            "Group Product Manager": {
+                "name": "GroupPM",
+                "profile": "Group Product Manager",
+                "goal": "Break down high-level tasks into smaller, manageable parts",
+                "constraints": "",
+                "desc": "",
+                "is_human": false,
+                "role_id": "",
+                "states": [],
+                "actions": [],
+                "rc": {
+                    "memory": {
+                        "storage": [
+                            {
+                                "id": "23bd499e140b4c34804e93c97ac1979c",
+                                "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                                "instruct_content": null,
+                                "role": "Human",
+                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                "sent_from": "",
+                                "send_to": [
+                                    "<all>"
+                                ]
+                            }
+                        ],
+                        "index": {
+                            "metagpt.actions.add_requirement.UserRequirement": [
+                                {
+                                    "id": "23bd499e140b4c34804e93c97ac1979c",
+                                    "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                                    "instruct_content": null,
+                                    "role": "Human",
+                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                    "sent_from": "",
+                                    "send_to": [
+                                        "<all>"
+                                    ]
+                                }
+                            ]
+                        },
+                        "ignore_id": false
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "state": -1,
+                    "watch": [
+                        "metagpt.actions.add_requirement.UserRequirement"
+                    ],
+                    "react_mode": "react",
+                    "max_react_loop": 1
+                },
+                "addresses": [
+                    "GroupPM",
+                    "metagpt_doc_writer.roles.group_pm.GroupPM"
+                ],
+                "planner": {
+                    "plan": {
+                        "goal": "",
+                        "context": "",
+                        "tasks": [],
+                        "task_map": {},
+                        "current_task_id": ""
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "auto_run": false
+                },
+                "recovered": false,
+                "latest_observed_msg": {
+                    "id": "23bd499e140b4c34804e93c97ac1979c",
+                    "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                    "instruct_content": null,
+                    "role": "Human",
+                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                    "sent_from": "",
+                    "send_to": [
+                        "<all>"
+                    ]
+                },
+                "__module_class_name": "metagpt_doc_writer.roles.group_pm.GroupPM"
+            },
+            "Task Refiner": {
+                "name": "TaskRefiner",
+                "profile": "Task Refiner",
+                "goal": "Refine initial tasks to make them more detailed",
+                "constraints": "",
+                "desc": "",
+                "is_human": false,
+                "role_id": "",
+                "states": [
+                    "0. RefineTask"
+                ],
+                "actions": [
+                    {
+                        "name": "RefineTask",
+                        "i_context": "",
+                        "prefix": "You are a Task Refiner, named TaskRefiner, your goal is Refine initial tasks to make them more detailed. ",
+                        "desc": "",
+                        "__module_class_name": "metagpt_doc_writer.actions.refine_task.RefineTask"
+                    }
+                ],
+                "rc": {
+                    "memory": {
+                        "storage": [
+                            {
+                                "id": "23bd499e140b4c34804e93c97ac1979c",
+                                "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                                "instruct_content": null,
+                                "role": "Human",
+                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                "sent_from": "",
+                                "send_to": [
+                                    "<all>"
+                                ]
+                            }
+                        ],
+                        "index": {
+                            "metagpt.actions.add_requirement.UserRequirement": [
+                                {
+                                    "id": "23bd499e140b4c34804e93c97ac1979c",
+                                    "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                                    "instruct_content": null,
+                                    "role": "Human",
+                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                    "sent_from": "",
+                                    "send_to": [
+                                        "<all>"
+                                    ]
+                                }
+                            ]
+                        },
+                        "ignore_id": false
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "state": -1,
+                    "watch": [
+                        "metagpt_doc_writer.schemas.doc_structures.InitialTask"
+                    ],
+                    "react_mode": "react",
+                    "max_react_loop": 1
+                },
+                "addresses": [
+                    "TaskRefiner",
+                    "metagpt_doc_writer.roles.task_refiner.TaskRefiner"
+                ],
+                "planner": {
+                    "plan": {
+                        "goal": "",
+                        "context": "",
+                        "tasks": [],
+                        "task_map": {},
+                        "current_task_id": ""
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "auto_run": false
+                },
+                "recovered": false,
+                "latest_observed_msg": null,
+                "__module_class_name": "metagpt_doc_writer.roles.task_refiner.TaskRefiner"
+            },
+            "Task Dispatcher": {
+                "name": "TaskDispatcher",
+                "profile": "Task Dispatcher",
+                "goal": "Generate initial tasks from module outlines",
+                "constraints": "",
+                "desc": "",
+                "is_human": false,
+                "role_id": "",
+                "states": [
+                    "0. GenerateInitialTask"
+                ],
+                "actions": [
+                    {
+                        "name": "GenerateInitialTask",
+                        "i_context": "",
+                        "prefix": "You are a Task Dispatcher, named TaskDispatcher, your goal is Generate initial tasks from module outlines. ",
+                        "desc": "",
+                        "__module_class_name": "metagpt_doc_writer.actions.generate_initial_task.GenerateInitialTask"
+                    }
+                ],
+                "rc": {
+                    "memory": {
+                        "storage": [
+                            {
+                                "id": "23bd499e140b4c34804e93c97ac1979c",
+                                "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                                "instruct_content": null,
+                                "role": "Human",
+                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                "sent_from": "",
+                                "send_to": [
+                                    "<all>"
+                                ]
+                            }
+                        ],
+                        "index": {
+                            "metagpt.actions.add_requirement.UserRequirement": [
+                                {
+                                    "id": "23bd499e140b4c34804e93c97ac1979c",
+                                    "content": "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd",
+                                    "instruct_content": null,
+                                    "role": "Human",
+                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                    "sent_from": "",
+                                    "send_to": [
+                                        "<all>"
+                                    ]
+                                }
+                            ]
+                        },
+                        "ignore_id": false
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "state": -1,
+                    "watch": [
+                        "metagpt_doc_writer.schemas.doc_structures.ModuleOutline"
+                    ],
+                    "react_mode": "react",
+                    "max_react_loop": 1
+                },
+                "addresses": [
+                    "TaskDispatcher",
+                    "metagpt_doc_writer.roles.task_dispatcher.TaskDispatcher"
+                ],
+                "planner": {
+                    "plan": {
+                        "goal": "",
+                        "context": "",
+                        "tasks": [],
+                        "task_map": {},
+                        "current_task_id": ""
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "auto_run": false
+                },
+                "recovered": false,
+                "latest_observed_msg": null,
+                "__module_class_name": "metagpt_doc_writer.roles.task_dispatcher.TaskDispatcher"
+            },
+            "Technical Writer": {
+                "name": "TechnicalWriter",
+                "profile": "Technical Writer",
+                "goal": "Write high-quality technical documentation",
+                "constraints": "",
+                "desc": "",
+                "is_human": false,
+                "role_id": "",
+                "states": [
+                    "0. WriteSection"
+                ],
+                "actions": [
+                    {
+                        "name": "WriteSection",
+                        "i_context": "",
+                        "prefix": "You are a Technical Writer, named TechnicalWriter, your goal is Write high-quality technical documentation. ",
+                        "desc": "",
+                        "tool_registry": 

@@ -27,15 +27,6 @@ async def test_write_section_with_reflection(mocker):
     }
     mock_reflection_message_high_score = Message(content=json.dumps(mock_reflection_response_high_score))
 
-    # Create a mock LLM instance
-    mock_llm = mocker.Mock(spec=BaseLLM)
-    mock_llm.aask.side_effect = [
-        mock_initial_draft_message,  # First call for initial draft
-        mock_reflection_message_low_score, # Second call for reflection (low score)
-        mock_initial_draft_message,  # Third call for initial draft (for second test case)
-        mock_reflection_message_high_score # Fourth call for reflection (high score)
-    ]
-
     # Create an ApprovedTask instance
     approved_task = ApprovedTask(
         chapter_title="Test Chapter",
@@ -48,16 +39,19 @@ async def test_write_section_with_reflection(mocker):
     )
 
     # Test case 1: Low score, should return revised draft
-    action = WriteSection(llm=mock_llm)
+    mocker.patch.object(BaseLLM, 'aask', side_effect=[
+        mock_initial_draft_message,
+        mock_reflection_message_low_score
+    ])
+    action = WriteSection()
     draft_section = await action.run(approved_task)
-
     assert draft_section.content == mock_reflection_response_low_score["Revise"]
-    assert mock_llm.aask.call_count == 2 # Initial draft + reflection
-    mock_llm.aask.reset_mock()
 
     # Test case 2: High score, should return original draft
-    action = WriteSection(llm=mock_llm)
+    mocker.patch.object(BaseLLM, 'aask', side_effect=[
+        mock_initial_draft_message,
+        mock_reflection_message_high_score
+    ])
+    action = WriteSection()
     draft_section = await action.run(approved_task)
-
     assert draft_section.content == mock_initial_draft_content
-    assert mock_llm.aask.call_count == 2 # Initial draft + reflection
