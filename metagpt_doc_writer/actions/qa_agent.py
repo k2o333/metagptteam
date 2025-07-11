@@ -1,4 +1,4 @@
-# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/qa_agent.py (最终修复版)
+# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/qa_agent.py (新增文件)
 
 from metagpt.logs import logger
 from metagpt.schema import Message
@@ -19,19 +19,8 @@ class QAAgent(MyBaseRole):
     async def _act(self) -> Message:
         """
         Performs a QA check on the latest document draft.
-        FIX: This method now directly retrieves its action and does not depend on a
-             pre-set self.rc.todo, making it more robust for direct calls in tests.
         """
         logger.info(f"Executing action: {self.name}")
-        
-        # FIX: Directly get the action from the role's action list.
-        # This is robust for roles with a single, clear purpose.
-        check_action = self.actions[0]
-        if not isinstance(check_action, AutomatedCheck):
-            logger.error(f"Action setup error: Expected AutomatedCheck, found {type(check_action)}.")
-            return None
-        
-        logger.info(f"{self._setting}: Running action '{check_action.name}'")
         
         memories = self.get_memories()
         try:
@@ -40,6 +29,7 @@ class QAAgent(MyBaseRole):
             logger.warning("No FullDraft found in memory for QA check. Nothing to do.")
             return None
 
+        check_action = self.actions[0]
         qa_report = await check_action.run(draft_msg.instruct_content)
         
         return Message(content=qa_report.model_dump_json(indent=2), instruct_content=qa_report)

@@ -1,34 +1,35 @@
-# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/technical_writer.py (最终回执版)
-from metagpt.roles import Role
-from metagpt.schema import Message
-from metagpt.logs import logger
-from metagpt_doc_writer.schemas.doc_structures import Task
+# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/technical_writer.py (更新版)
 
-class TechnicalWriter(Role):
-    def __init__(self, name: str = "Executor", **kwargs):
-        super().__init__(name=name, **kwargs)
-        self._watch({Task})
+from metagpt.logs import logger
+from metagpt.schema import Message
+from .base_role import MyBaseRole
+from metagpt_doc_writer.actions.write_section import WriteSection
+from metagpt_doc_writer.schemas.doc_structures import ApprovedTask, DraftSection
+
+class TechnicalWriter(MyBaseRole):
+    name: str = "TechnicalWriter"
+    profile: str = "Technical Writer"
+    goal: str = "Write high-quality, clear, and accurate technical documentation sections."
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_actions([WriteSection()])
+        self._watch({ApprovedTask})
 
     async def _act(self) -> Message:
-        # 获取最新的、发给自己的任务消息
-        task_msg = next((msg for msg in reversed(self.rc.news) if isinstance(msg.instruct_content, Task) and self.name in msg.send_to), None)
+        """
+        Takes an ApprovedTask and writes a DraftSection for it.
+        """
+        logger.info(f"Executing action: {self.name}")
         
-        if not task_msg:
-             return None # 本轮没有给我的新任务
+        memories = self.get_memories()
+        try:
+            approved_task_msg = next(m for m in reversed(memories) if isinstance(m.instruct_content, ApprovedTask))
+        except StopIteration:
+            logger.warning("No ApprovedTask found in memory. Nothing to write.")
+            return None
 
-        task: Task = task_msg.instruct_content
-        logger.info(f"{self.name} received task '{task.task_id}': {task.instruction}")
-
-        target_action = next((action for action in self.actions if action.name == task.action_type), None)
+        write_action = self.actions[0]
+        draft_section = await write_action.run(approved_task_msg.instruct_content)
         
-        if not target_action:
-            error_msg = f"Action type '{task.action_type}' not found in {self.name}'s actions."
-            logger.error(error_msg)
-            return Message(content=error_msg, send_to="Scheduler", instruct_content=task, role=self.name)
-
-        context = task.context.get('dependency_results', '')
-        result = await target_action.run(instruction=task.instruction, context=context)
-        
-        # [关键] 将包含结果和原Task对象的消息发送回Scheduler
-        logger.info(f"Task '{task.task_id}' completed by {self.name}.")
-        return Message(content=str(result), instruct_content=task, send_to="Scheduler", role=self.name)
+        return Message(content=draft_section.content, instruct_content=draft_section)
