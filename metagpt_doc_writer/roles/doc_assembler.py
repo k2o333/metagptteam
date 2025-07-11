@@ -1,65 +1,83 @@
+# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/doc_assembler.py (已修复)
 
-from metagpt.logs import logger
-import uuid
+import hashlib
+import re
 from .base_role import MyBaseRole
 from metagpt.schema import Message
 from metagpt_doc_writer.schemas.doc_structures import DraftSection, FullDraft
-from pathlib import Path
+from metagpt.logs import logger
 
 class DocAssembler(MyBaseRole):
     name: str = "DocAssembler"
     profile: str = "Document Assembler"
-    goal: str = "Assemble and finalize documents"
+    goal: str = "Assemble draft sections into a full document with stable anchors"
 
-    def __init__(self, output_path: str = "./data/outputs", **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([]) # Non-LLM role
-        self._watch({DraftSection, FullDraft}) # Watches for draft sections and finalization requests
-        self.output_path = Path(output_path)
+        self.set_actions([])  # Non-LLM, deterministic role
+        # It watches for DraftSection, but its _act is designed to be robust even if called directly.
+        self._watch({DraftSection}) 
 
     async def _act(self) -> Message:
-        logger.info(f"DocAssembler _act called. News count: {len(self.rc.news)}")
-        if not self.rc.news:
+        """
+        Assembles a FullDraft from all DraftSection messages in memory.
+        This method is now robust and works by checking memory directly,
+        not just news.
+        """
+        logger.info(f"Executing action: {self.name}")
+        
+        # FIX: Instead of relying on rc.news, directly get all relevant messages
+        # from the role's complete memory. This makes the role more tool-like.
+        memories = self.get_memories()
+        draft_sections = [msg.instruct_content for msg in memories if isinstance(msg.instruct_content, DraftSection)]
+        
+        if not draft_sections:
+            logger.warning("No DraftSection found in memory. Nothing to assemble.")
             return None
 
-        messages = self.rc.news
-        logger.debug(f"DocAssembler received messages: {[msg.dict() for msg in messages]}")
+        logger.info(f"Assembling {len(draft_sections)} draft sections.")
+        full_content_with_anchors = self._assemble_with_hashed_anchors(draft_sections)
         
-        # Check if we need to assemble a document
-        draft_sections = [msg.instruct_content for msg in messages if isinstance(msg.instruct_content, DraftSection)]
-        if draft_sections:
-            logger.info(f"DocAssembler assembling {len(draft_sections)} draft sections.")
-            full_content_with_anchors = self._assemble_with_anchors(draft_sections)
-            new_draft = FullDraft(content=full_content_with_anchors)
-            logger.info("DocAssembler assembled document with anchors.")
-            return Message(content="Assembled document with anchors.", instruct_content=new_draft)
+        # Assuming this is the first assembly, version is 1.
+        # A more complex logic could increment versions if a FullDraft already exists.
+        new_draft = FullDraft(content=full_content_with_anchors, version=1)
+        
+        logger.info("Document assembled successfully with hashed anchors.")
+        return Message(content="Full document assembled.", instruct_content=new_draft)
 
-        # Check if we need to finalize a document (e.g., on an Approval message)
-        finalize_requests = [msg.instruct_content for msg in messages if isinstance(msg.instruct_content, FullDraft)]
-        if finalize_requests:
-            logger.info(f"DocAssembler finalizing document. Received {len(finalize_requests)} FullDrafts.")
-            final_content = self._finalize_document(finalize_requests[0])
-            # Save the finalized document to disk
-            self.output_path.mkdir(parents=True, exist_ok=True)
-            output_file = self.output_path / "final_document.md"
-            output_file.write_text(final_content)
-            logger.info(f"Final document saved to {output_file}")
-            return Message(content=f"Final document saved to {output_file}", instruct_content=None) 
-
-        logger.info("DocAssembler found no relevant messages to act on.")
-        return None
-
-    def _assemble_with_anchors(self, sections: list[DraftSection]) -> str:
-        """Assembles sections into a single document with unique anchor IDs."""
-        sorted_sections = sorted(sections, key=lambda s: s.chapter_id)
-        full_content = []
+    def _assemble_with_hashed_anchors(self, sections: list[DraftSection]) -> str:
+        """
+        Assembles sections into a single document, adding a stable, content-based
+        hashed anchor ID to each significant paragraph or block.
+        """
+        # Sort sections based on chapter_id to ensure correct order
+        # Use a robust sort key, handling potential non-integer chapter_ids gracefully
+        sorted_sections = sorted(sections, key=lambda s: str(s.chapter_id))
+        
+        full_content_parts = []
         for section in sorted_sections:
-            anchor_id = f"[anchor-id::{uuid.uuid4()}]"
-            full_content.append(f"{anchor_id}{section.content}")
-        return "\n\n".join(full_content)
+            # Split section content into paragraphs (handling multiple newlines)
+            paragraphs = re.split(r'\n\s*\n', section.content.strip())
+            
+            for para in paragraphs:
+                para = para.strip()
+                if not para:
+                    continue
+                
+                # Create a stable hash from the paragraph content
+                anchor_text = para[:256] # Use a slice for performance and consistency
+                anchor_id = hashlib.sha1(anchor_text.encode('utf-8')).hexdigest()[:12]
+                
+                # Prepend the anchor to the paragraph
+                full_content_parts.append(f"[anchor-id::{anchor_id}]\n{para}")
+                
+        return "\n\n".join(full_content_parts)
 
     def _finalize_document(self, draft: FullDraft) -> str:
-        """Removes all anchor IDs from the document."""
-        import re
-        final_content = re.sub(r'\[anchor-id::.*?\]', '', draft.content)
+        """
+        Removes all anchor IDs from the document for final delivery.
+        """
+        logger.info("Finalizing document by removing all anchor IDs.")
+        # Regex to find and remove the anchor tags followed by a newline
+        final_content = re.sub(r'\[anchor-id::[a-f0-9]{12}\]\n', '', draft.content)
         return final_content

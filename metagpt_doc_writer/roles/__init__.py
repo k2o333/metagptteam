@@ -1,17 +1,11 @@
+# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/__init__.py (已修复)
+
 """
 This module provides the roles for the document writing team.
 """
-from .archiver import Archiver
-from .changeset_generator import ChangeSetGenerator
-from .chief_pm import ChiefPM
-from .doc_assembler import DocAssembler
-from .doc_modifier import DocModifier
-from .group_pm import GroupPM
-from .performance_monitor import PerformanceMonitor
-from .qa_agent import QAAgent
-from .task_dispatcher import TaskDispatcher
-from .task_refiner import TaskRefiner
-from .technical_writer import TechnicalWriter
+# To prevent circular imports, we list the role names here for discoverability,
+# but we do NOT import them directly. The calling code should import from the
+# specific module, e.g., 'from metagpt_doc_writer.roles.chief_pm import ChiefPM'.
 
 __all__ = [
     "Archiver",
@@ -25,4 +19,6 @@ __all__ = [
     "TaskDispatcher",
     "TaskRefiner",
     "TechnicalWriter",
+    "Planner",         # 从旧文件里找到的，也加上
+    "SchedulerRole",   # 从旧文件里找到的，也加上
 ]

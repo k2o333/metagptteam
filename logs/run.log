@@ -5070,3 +5070,370 @@ This Product Requirements Document (PRD) outlines the development of the MetaGPT
 2025-07-10 14:11:20.743 | INFO     | __main__:start_app:91 - --- 结果整合阶段开始 ---
 2025-07-10 14:11:20.745 | INFO     | __main__:start_app:114 - 🎉 最终文档已成功生成！请查看: /root/metagpt/mgfr/outputs/prd_写一个给定技术文档_能出代码的_metagpt的多智能体脚本的prd.md
 2025-07-10 14:11:20.746 | INFO     | __main__:start_app:118 - 文档生成流程全部完成！
+2025-07-10 22:49:51.090 | INFO     | __main__:start_app:43 - 正在加载配置...
+2025-07-10 22:49:51.147 | INFO     | __main__:start_app:52 - LLM实例创建成功，模型: 'mistral-medium-latest'
+2025-07-10 22:49:51.147 | INFO     | __main__:start_app:57 - --- 规划阶段开始 ---
+2025-07-10 22:50:00.132 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:50:00.134 | INFO     | metagpt_doc_writer.actions.create_plan:run:63 - ✅ LLM successfully generated a valid Plan object using action_type.
+2025-07-10 22:50:00.134 | INFO     | metagpt_doc_writer.actions.create_plan:run:64 - {
+  "goal": "写一个关于MetaGPT框架核心概念的详细教程",
+  "tasks": [
+    {
+      "task_id": "task_1",
+      "instruction": "研究MetaGPT框架的核心概念和主要组件。",
+      "action_type": "RESEARCH",
+      "context": {},
+      "dependent_task_ids": []
+    },
+    {
+      "task_id": "task_2",
+      "instruction": "收集MetaGPT框架的相关文档和示例代码。",
+      "action_type": "RESEARCH",
+      "context": {},
+      "dependent_task_ids": [
+        "task_1"
+      ]
+    },
+    {
+      "task_id": "task_3",
+      "instruction": "创建一个详细的教程大纲，包括核心概念、组件介绍、使用示例和最佳实践。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_2"
+      ]
+    },
+    {
+      "task_id": "task_4",
+      "instruction": "撰写教程的介绍部分，解释MetaGPT框架的背景和目的。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_3"
+      ]
+    },
+    {
+      "task_id": "task_5",
+      "instruction": "详细描述MetaGPT框架的核心概念和主要组件。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_4"
+      ]
+    },
+    {
+      "task_id": "task_6",
+      "instruction": "提供MetaGPT框架的使用示例和代码片段。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_5"
+      ]
+    },
+    {
+      "task_id": "task_7",
+      "instruction": "编写最佳实践和常见问题解答部分。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_6"
+      ]
+    },
+    {
+      "task_id": "task_8",
+      "instruction": "撰写教程的结论部分，总结MetaGPT框架的核心概念和使用建议。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_7"
+      ]
+    },
+    {
+      "task_id": "task_9",
+      "instruction": "审查教程的完整性和准确性，确保所有核心概念都被涵盖。",
+      "action_type": "REVIEW",
+      "context": {},
+      "dependent_task_ids": [
+        "task_8"
+      ]
+    },
+    {
+      "task_id": "task_10",
+      "instruction": "根据反馈进行必要的修改和调整。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_9"
+      ]
+    }
+  ],
+  "task_map": {
+    "task_1": {
+      "task_id": "task_1",
+      "instruction": "研究MetaGPT框架的核心概念和主要组件。",
+      "action_type": "RESEARCH",
+      "context": {},
+      "dependent_task_ids": []
+    },
+    "task_2": {
+      "task_id": "task_2",
+      "instruction": "收集MetaGPT框架的相关文档和示例代码。",
+      "action_type": "RESEARCH",
+      "context": {},
+      "dependent_task_ids": [
+        "task_1"
+      ]
+    },
+    "task_3": {
+      "task_id": "task_3",
+      "instruction": "创建一个详细的教程大纲，包括核心概念、组件介绍、使用示例和最佳实践。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_2"
+      ]
+    },
+    "task_4": {
+      "task_id": "task_4",
+      "instruction": "撰写教程的介绍部分，解释MetaGPT框架的背景和目的。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_3"
+      ]
+    },
+    "task_5": {
+      "task_id": "task_5",
+      "instruction": "详细描述MetaGPT框架的核心概念和主要组件。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_4"
+      ]
+    },
+    "task_6": {
+      "task_id": "task_6",
+      "instruction": "提供MetaGPT框架的使用示例和代码片段。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_5"
+      ]
+    },
+    "task_7": {
+      "task_id": "task_7",
+      "instruction": "编写最佳实践和常见问题解答部分。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_6"
+      ]
+    },
+    "task_8": {
+      "task_id": "task_8",
+      "instruction": "撰写教程的结论部分，总结MetaGPT框架的核心概念和使用建议。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_7"
+      ]
+    },
+    "task_9": {
+      "task_id": "task_9",
+      "instruction": "审查教程的完整性和准确性，确保所有核心概念都被涵盖。",
+      "action_type": "REVIEW",
+      "context": {},
+      "dependent_task_ids": [
+        "task_8"
+      ]
+    },
+    "task_10": {
+      "task_id": "task_10",
+      "instruction": "根据反馈进行必要的修改和调整。",
+      "action_type": "WRITE",
+      "context": {},
+      "dependent_task_ids": [
+        "task_9"
+      ]
+    }
+  }
+}
+2025-07-10 22:50:00.135 | INFO     | __main__:start_app:66 - ✅ 规划成功，生成了 10 个任务。
+2025-07-10 22:50:00.135 | INFO     | __main__:start_app:72 - --- 执行阶段开始 ---
+2025-07-10 22:50:00.202 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_1': 研究MetaGPT框架的核心概念和主要组件。
+2025-07-10 22:50:00.203 | INFO     | metagpt_doc_writer.actions.research:run:21 - Executing Research Action with instruction: 研究MetaGPT框架的核心概念和主要组件。
+2025-07-10 22:50:53.073 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:50:53.075 | INFO     | metagpt_doc_writer.actions.research:run:28 - Research result for '研究MetaGPT框架的核心概念和主要组件。':
+MetaGPT是一个基于大型语言模型（LLM）的多智能体框架，旨在通过协调多个智能体来提高解决复杂任务的效率和准确性。以下是对MetaGPT框架的核心概念和主要组件的详细总结：
+
+### 核心概念
+
+1. **多智能体协作**：
+   MetaGPT的核心理念是通过多个智能体的协作来完成复杂任务。每个智能体都有其特定的角色和职责，通过协调和合作，可以更高效地完成任务。
+
+2. **标准化流程**：...
+2025-07-10 22:50:53.076 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_1: 研究MetaGPT框架的核心概念和主要组件。' 已完成。
+2025-07-10 22:50:53.076 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_2': 收集MetaGPT框架的相关文档和示例代码。
+2025-07-10 22:50:53.077 | INFO     | metagpt_doc_writer.actions.research:run:21 - Executing Research Action with instruction: 收集MetaGPT框架的相关文档和示例代码。
+2025-07-10 22:51:10.084 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:51:10.086 | INFO     | metagpt_doc_writer.actions.research:run:28 - Research result for '收集MetaGPT框架的相关文档和示例代码。':
+MetaGPT是一个基于Python的框架，旨在通过多智能体协作来解决复杂的任务。它利用大型语言模型（LLMs）来模拟人类软件工程师的角色，从而实现软件开发的自动化。以下是关于MetaGPT框架的详细信息，包括相关文档和示例代码的汇总。
+
+### 相关文档
+
+1. **GitHub仓库**：
+   - MetaGPT的官方GitHub仓库是获取框架信息的主要来源。仓库地址为：[MetaGPT Gi...
+2025-07-10 22:51:10.087 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_2: 收集MetaGPT框架的相关文档和示例代码。' 已完成。
+2025-07-10 22:51:10.088 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_3': 创建一个详细的教程大纲，包括核心概念、组件介绍、使用示例和最佳实践。
+2025-07-10 22:51:10.089 | INFO     | metagpt_doc_writer.actions.write:run:25 - Executing Write Action with instruction: 创建一个详细的教程大纲，包括核心概念、组件介绍、使用示例和最佳实践。
+2025-07-10 22:51:53.699 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:51:53.700 | INFO     | metagpt_doc_writer.actions.write:run:32 - Writing result for '创建一个详细的教程大纲，包括核心概念、组件介绍、使用示例和最佳实践。':
+# MetaGPT框架详细教程大纲
+
+## 1. 介绍
+
+### 1.1 概述
+- MetaGPT框架简介
+- 目标和应用场景
+- 框架的核心理念
+
+### 1.2 前提条件
+- Python基础知识
+- 熟悉软件开发流程
+- 对大型语言模型（LLMs）有基本了解
+
+## 2. 核心概念
+
+### 2.1 多智能体协作
+- 多智能体系统的定义和优势
+- 智能体之间的协作机制
+- 任务分解和分配
+
+...
+2025-07-10 22:51:53.701 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_3: 创建一个详细的教程大纲，包括核心概念、组件介绍、使用示例和最佳实践。' 已完成。
+2025-07-10 22:51:53.702 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_4': 撰写教程的介绍部分，解释MetaGPT框架的背景和目的。
+2025-07-10 22:51:53.702 | INFO     | metagpt_doc_writer.actions.write:run:25 - Executing Write Action with instruction: 撰写教程的介绍部分，解释MetaGPT框架的背景和目的。
+2025-07-10 22:52:07.342 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:52:07.343 | INFO     | metagpt_doc_writer.actions.write:run:32 - Writing result for '撰写教程的介绍部分，解释MetaGPT框架的背景和目的。':
+## 1. 介绍
+
+### 1.1 概述
+
+#### MetaGPT框架简介
+
+MetaGPT框架是一个创新的开源项目，旨在通过多智能体协作和大型语言模型（LLMs）实现软件开发的自动化。该框架的核心理念是模拟一个软件公司的运作，其中各个智能体（角色）扮演不同的职责，如产品经理、架构师、工程师等，共同协作完成软件开发任务。MetaGPT框架的设计灵感来源于现代软件开发团队的协作模式，通过自动化和智...
+2025-07-10 22:52:07.343 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_4: 撰写教程的介绍部分，解释MetaGPT框架的背景和目的。' 已完成。
+2025-07-10 22:52:07.344 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_5': 详细描述MetaGPT框架的核心概念和主要组件。
+2025-07-10 22:52:07.344 | INFO     | metagpt_doc_writer.actions.write:run:25 - Executing Write Action with instruction: 详细描述MetaGPT框架的核心概念和主要组件。
+2025-07-10 22:52:31.665 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:52:31.666 | INFO     | metagpt_doc_writer.actions.write:run:32 - Writing result for '详细描述MetaGPT框架的核心概念和主要组件。':
+### MetaGPT框架的核心概念和主要组件
+
+#### 核心概念
+
+MetaGPT框架的核心概念围绕多智能体协作、大型语言模型（LLMs）的应用以及软件开发自动化展开。以下是这些核心概念的详细描述：
+
+1. **多智能体协作**
+   - **智能体角色**：在MetaGPT框架中，每个智能体扮演一个特定的角色，如产品经理、架构师、工程师、测试人员等。这些角色模拟真实的软件开发团队，各自承担不...
+2025-07-10 22:52:31.667 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_5: 详细描述MetaGPT框架的核心概念和主要组件。' 已完成。
+2025-07-10 22:52:31.667 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_6': 提供MetaGPT框架的使用示例和代码片段。
+2025-07-10 22:52:31.668 | INFO     | metagpt_doc_writer.actions.write:run:25 - Executing Write Action with instruction: 提供MetaGPT框架的使用示例和代码片段。
+2025-07-10 22:52:53.496 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:52:53.497 | INFO     | metagpt_doc_writer.actions.write:run:32 - Writing result for '提供MetaGPT框架的使用示例和代码片段。':
+### MetaGPT框架的使用示例和代码片段
+
+#### 使用示例
+
+MetaGPT框架通过多智能体协作和大型语言模型（LLMs）的应用，实现了软件开发的自动化。以下是一个典型的使用示例，展示如何使用MetaGPT框架进行一个简单的软件开发项目。
+
+##### 示例场景
+
+假设我们需要开发一个简单的在线图书管理系统，包括需求分析、架构设计、代码实现和测试等阶段。我们可以使用MetaGPT框架来自...
+2025-07-10 22:52:53.498 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_6: 提供MetaGPT框架的使用示例和代码片段。' 已完成。
+2025-07-10 22:52:53.499 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_7': 编写最佳实践和常见问题解答部分。
+2025-07-10 22:52:53.499 | INFO     | metagpt_doc_writer.actions.write:run:25 - Executing Write Action with instruction: 编写最佳实践和常见问题解答部分。
+2025-07-10 22:53:14.440 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:53:14.441 | INFO     | metagpt_doc_writer.actions.write:run:32 - Writing result for '编写最佳实践和常见问题解答部分。':
+### 最佳实践
+
+在使用MetaGPT框架进行软件开发自动化时，遵循以下最佳实践可以帮助您更高效地完成项目，并确保代码质量和团队协作的顺畅性。
+
+#### 1. **明确需求**
+
+- **详细描述**：在输入需求时，尽可能详细地描述功能和需求。例如，不仅仅描述“我们需要一个在线图书管理系统”，还应包括具体的功能点，如图书添加、删除、查询和借阅功能。
+- **用户故事**：使用用户故事的形式描述...
+2025-07-10 22:53:14.441 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_7: 编写最佳实践和常见问题解答部分。' 已完成。
+2025-07-10 22:53:14.442 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_8': 撰写教程的结论部分，总结MetaGPT框架的核心概念和使用建议。
+2025-07-10 22:53:14.443 | INFO     | metagpt_doc_writer.actions.write:run:25 - Executing Write Action with instruction: 撰写教程的结论部分，总结MetaGPT框架的核心概念和使用建议。
+2025-07-10 22:53:25.127 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:53:25.129 | INFO     | metagpt_doc_writer.actions.write:run:32 - Writing result for '撰写教程的结论部分，总结MetaGPT框架的核心概念和使用建议。':
+### 结论
+
+在本教程中，我们全面探讨了MetaGPT框架的核心概念和使用方法。通过遵循本教程中的指导和最佳实践，您可以更高效地利用MetaGPT框架进行软件开发自动化，从而提高开发效率和代码质量。
+
+#### 核心概念总结
+
+1. **智能体（Agents）**：
+   - MetaGPT框架的核心是智能体，每个智能体代表一个特定的角色，如产品经理、架构师、工程师和测试人员。
+   - 智能体...
+2025-07-10 22:53:25.129 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_8: 撰写教程的结论部分，总结MetaGPT框架的核心概念和使用建议。' 已完成。
+2025-07-10 22:53:25.130 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_9': 审查教程的完整性和准确性，确保所有核心概念都被涵盖。
+2025-07-10 22:53:25.131 | INFO     | metagpt_doc_writer.actions.review:run:24 - Executing Review Action with instruction: 审查教程的完整性和准确性，确保所有核心概念都被涵盖。
+2025-07-10 22:53:34.371 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:53:34.372 | INFO     | metagpt_doc_writer.actions.review:run:31 - Review result for '审查教程的完整性和准确性，确保所有核心概念都被涵盖。':
+### Review Comments
+
+1. **Complete Coverage of Core Concepts**:
+   - The tutorial covers the core concepts of the MetaGPT framework comprehensively. It includes detailed explanations of Agents, task allocation and execution, code generation and testing, continuous integration and deployment, and team collaboration.
+
+2. **Accuracy and Clarity**:
+   - The explanations provided are accurate and clear. Each core concept is well-defined and accompanied by practical usage suggestions.
+   - The use of bullet points and subheadings makes the content easy to follow and understand.
+
+3. **Practical Usage Suggestions**:
+   - The tutorial offers practical advice on how to effectively use the MetaGPT framework. This includes clear steps on requirement gathering, task allocation, ensuring code quality, comprehensive testing, CI/CD setup, and team collaboration.
+
+4. **Logical Flow**:
+   - The content is logically structured, starting with an overview of core concepts and followed by practical usage suggestions. This flow helps in understanding the theoretical aspects before moving on to their practical applications.
+
+5. **Detailed Explanations**:
+   - Each section provides detailed explanations, which are crucial for understanding the complexities of the MetaGPT framework. For example, the section on Agents explains their roles and how they are defined and implemented.
+
+6. **Emphasis on Best Practices**:
+   - The tutorial emphasizes best practices, such as detailed requirement gathering, code reviews, adherence to coding standards, and the use of collaboration tools. This focus on best practices ensures that users can maximize the benefits of the MetaGPT framework.
+
+7. **Conclusion and Summary**:
+   - The conclusion effectively summarizes the core concepts and usage suggestions, reinforcing the key takeaways from the tutorial.
+
+### Suggestions for Improvement
+
+1. **Examples and Use Cases**:
+   - While the tutorial is comprehensive, adding specific examples or use cases for each core concept could enhance understanding. Practical examples can illustrate how the concepts are applied in real-world scenarios.
+
+2. **Visual Aids**:
+   - Incorporating diagrams or flowcharts to visually represent the processes and interactions between different components (e.g., task allocation, CI/CD pipeline) could make the content more engaging and easier to grasp.
+
+3. **Troubleshooting and Common Pitfalls**:
+   - Including a section on common pitfalls and troubleshooting tips could be beneficial. This would help users anticipate and avoid potential issues, making the learning process smoother.
+
+4. **Further Reading and Resources**:
+   - Providing links or references to additional resources, such as official documentation, related articles, or community forums, could be helpful for users who wish to delve deeper into specific topics.
+
+5. **Interactive Elements**:
+   - If the format allows, adding interactive elements such as quizzes or exercises could help reinforce learning and ensure that users have understood the concepts correctly.
+
+Overall, the tutorial is well-structured, accurate, and comprehensive. With the addition of examples, visual aids, and troubleshooting tips, it could be further enhanced to provide an even more effective learning experience.
+2025-07-10 22:53:34.373 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_9: 审查教程的完整性和准确性，确保所有核心概念都被涵盖。' 已完成。
+2025-07-10 22:53:34.374 | INFO     | scripts.team_scheduler:execute_task:65 - 🚀 开始执行任务 'task_10': 根据反馈进行必要的修改和调整。
+2025-07-10 22:53:34.374 | INFO     | metagpt_doc_writer.actions.write:run:25 - Executing Write Action with instruction: 根据反馈进行必要的修改和调整。
+2025-07-10 22:53:52.462 | WARNING  | metagpt.provider.openai_api:_calc_usage:254 - usage calculation failed: num_tokens_from_messages() is not implemented for model mistral-medium-latest. See https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken for information on how messages are converted to tokens.
+2025-07-10 22:53:52.463 | INFO     | metagpt_doc_writer.actions.write:run:32 - Writing result for '根据反馈进行必要的修改和调整。':
+### MetaGPT Framework Tutorial: Revised Edition
+
+#### Introduction
+Welcome to the revised edition of the MetaGPT Framework Tutorial. This tutorial aims to provide a comprehensive understanding of the ...
+2025-07-10 22:53:52.464 | INFO     | scripts.team_scheduler:run:57 - ✅ 任务 'task_10: 根据反馈进行必要的修改和调整。' 已完成。
+2025-07-10 22:53:52.464 | INFO     | scripts.team_scheduler:run:59 - 🎉 全部任务已成功完成！
+2025-07-10 22:53:52.465 | INFO     | __main__:start_app:91 - --- 结果整合阶段开始 ---
+2025-07-10 22:53:52.466 | INFO     | __main__:start_app:114 - 🎉 最终文档已成功生成！请查看: /root/metagpt/mgfr/outputs/prd_写一个关于MetaGPT框架核心概念的详细教程.md
+2025-07-10 22:53:52.467 | INFO     | __main__:start_app:118 - 文档生成流程全部完成！

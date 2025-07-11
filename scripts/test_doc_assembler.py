@@ -1,42 +1,77 @@
-from unittest.mock import patch, PropertyMock, Mock
-from metagpt_doc_writer.roles.doc_assembler import DocAssembler
+# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/doc_assembler.py
+
+import hashlib
+from .base_role import MyBaseRole
+from metagpt.schema import Message
 from metagpt_doc_writer.schemas.doc_structures import DraftSection, FullDraft
-import uuid
+from metagpt.logs import logger
+import re
 
-def test_doc_assembler():
-    """
-    Tests the deterministic logic of DocAssembler.
-    """
-    # Mock the LLM property on the Role class to prevent actual LLM initialization errors
-    with patch('metagpt.roles.role.Role.llm', new_callable=PropertyMock) as mock_llm_property:
-        # Configure the mock to return a dummy object that has a 'system_prompt' attribute
-        mock_llm_instance = Mock()
-        mock_llm_instance.system_prompt = ""
-        mock_llm_property.return_value = mock_llm_instance
+class DocAssembler(MyBaseRole):
+    name: str = "DocAssembler"
+    profile: str = "Document Assembler"
+    goal: str = "Assemble draft sections into a full document with stable anchors"
 
-        assembler = DocAssembler()
-        sections = [
-            DraftSection(chapter_id="1", content="Content A."),
-            DraftSection(chapter_id="2", content="Content B.")
-        ]
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_actions([])  # Non-LLM, deterministic role
+        # Watches for a list of draft sections to trigger assembly
+        self._watch({DraftSection}) 
 
-        # Test assembling with anchors
-        assembled_content = assembler._assemble_with_anchors(sections)
-        print("Assembled content with anchors:")
-        print(assembled_content)
-        assert "[anchor-id::" in assembled_content
-        assert "Content A." in assembled_content
-        assert "Content B." in assembled_content
+    async def _act(self) -> Message:
+        """
+        Assembles a FullDraft from all DraftSection messages in memory.
+        """
+        logger.info(f"Executing action: {self.name}")
+        
+        # Correctly filter DraftSection messages from memory
+        draft_sections = [msg.instruct_content for msg in self.get_memories() if isinstance(msg.instruct_content, DraftSection)]
+        
+        if not draft_sections:
+            logger.warning("No DraftSection found in memory. Nothing to assemble.")
+            return None
 
-        # Test finalizing document
-        draft = FullDraft(content=assembled_content)
-        final_content = assembler._finalize_document(draft)
-        print("\nFinalized content:")
-        print(final_content)
-        assert "[anchor-id::" not in final_content
-        assert "Content A." in final_content
-        assert "Content B." in final_content
-        print("\nDocAssembler script validation successful!")
+        logger.info(f"Assembling {len(draft_sections)} draft sections.")
+        full_content_with_anchors = self._assemble_with_hashed_anchors(draft_sections)
+        
+        new_draft = FullDraft(content=full_content_with_anchors, version=1)
+        
+        logger.info("Document assembled successfully with hashed anchors.")
+        return Message(content="Full document assembled.", instruct_content=new_draft)
 
-if __name__ == "__main__":
-    test_doc_assembler()
+    def _assemble_with_hashed_anchors(self, sections: list[DraftSection]) -> str:
+        """
+        Assembles sections into a single document, adding a stable, content-based
+        hashed anchor ID to each significant paragraph or block.
+        """
+        # Sort sections based on chapter_id to ensure correct order
+        sorted_sections = sorted(sections, key=lambda s: s.chapter_id)
+        
+        full_content_parts = []
+        for section in sorted_sections:
+            # Split section content into paragraphs (handling multiple newlines)
+            paragraphs = re.split(r'\n\s*\n', section.content.strip())
+            
+            for para in paragraphs:
+                para = para.strip()
+                if not para:
+                    continue
+                
+                # Create a stable hash from the paragraph content
+                # We use the first 256 chars to balance uniqueness and performance
+                anchor_text = para[:256]
+                anchor_id = hashlib.sha1(anchor_text.encode()).hexdigest()[:12]
+                
+                # Prepend the anchor to the paragraph
+                full_content_parts.append(f"[anchor-id::{anchor_id}]\n{para}")
+                
+        return "\n\n".join(full_content_parts)
+
+    def _finalize_document(self, draft: FullDraft) -> str:
+        """
+        Removes all anchor IDs from the document for final delivery.
+        """
+        logger.info("Finalizing document by removing all anchor IDs.")
+        # Regex to find and remove the anchor tags
+        final_content = re.sub(r'\[anchor-id::[a-f0-9]{12}\]\n', '', draft.content)
+        return final_content

@@ -1,60 +1,85 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/roles/doc_modifier.py
+# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/doc_modifier.py (已修复)
 
-from .base_role import MyBaseRole
-from metagpt.schema import Message
-from metagpt_doc_writer.schemas.doc_structures import ValidatedChangeSet, FullDraft, Change
 import re
+from metagpt.schema import Message
+from metagpt_doc_writer.roles.base_role import MyBaseRole
+from metagpt_doc_writer.schemas.doc_structures import (
+    ValidatedChangeSet,
+    FullDraft,
+    Change,
+)
+from metagpt.logs import logger
 
 class DocModifier(MyBaseRole):
     name: str = "DocModifier"
     profile: str = "Document Modifier"
-    goal: str = "Apply changes to documents"
+    goal: str = "Apply validated changes to documents accurately"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([]) # Non-LLM role
-        self._watch({ValidatedChangeSet}) # Watches for validated change sets
+        self.set_actions([])  # This is a non-LLM, deterministic role
+        self._watch({ValidatedChangeSet})  # Watches for validated change sets
 
     async def _act(self) -> Message:
-        # Correctly filter messages from memory
+        """
+        Applies a validated changeset to the latest full draft in memory.
+        """
+        logger.info(f"Executing action: {self.name}")
+        
+        # 1. Get the latest changeset and draft from memory
         memories = self.get_memories()
-        changeset_msg = [m for m in memories if isinstance(m.instruct_content, ValidatedChangeSet)][-1]
-        full_draft_msg = [m for m in memories if isinstance(m.instruct_content, FullDraft)][-1]
+        try:
+            # FIX: Iterate through memory to find the latest message of the correct type
+            changeset_msg = next(m for m in reversed(memories) if isinstance(m.instruct_content, ValidatedChangeSet))
+            full_draft_msg = next(m for m in reversed(memories) if isinstance(m.instruct_content, FullDraft))
+        except StopIteration:
+            logger.warning("No ValidatedChangeSet or FullDraft found in memory. Nothing to do.")
+            return None
 
         current_content = full_draft_msg.instruct_content.content
         changes = changeset_msg.instruct_content.changes
 
+        # 2. Apply changes
+        logger.info(f"Applying {len(changes)} changes to the draft.")
         new_content = self._apply_changes(current_content, changes)
 
-        new_draft = FullDraft(content=new_content)
-
-        return Message(content="Document modified.", instruct_content=new_draft)
+        # 3. Create a new FullDraft message
+        new_draft = FullDraft(content=new_content, version=full_draft_msg.instruct_content.version + 1)
+        
+        return Message(content=f"Document modified with {len(changes)} changes.", instruct_content=new_draft)
 
     def _apply_changes(self, content: str, changes: list[Change]) -> str:
-        """Applies a list of changes to the document content."""
+        """
+        Applies a list of changes to the document content based on anchor IDs.
+        """
         for change in changes:
-            # Check for anchor_id and construct a regex pattern for the block.
             if not hasattr(change, 'anchor_id') or not change.anchor_id:
-                continue # Skip changes without a valid anchor_id
+                logger.warning(f"Skipping change due to missing anchor_id: {change.comment}")
+                continue
 
-            # A block is from one anchor_id to the next, or to the end of the file.
-            # Use re.escape to handle special characters in the anchor_id itself.
-            start_pattern = re.escape(change.anchor_id)
-            # The regex looks for the start pattern, captures everything until the next anchor pattern or end of string.
-            regex_pattern = f"(\\[anchor-id::{start_pattern}\\])(.*?)(?=\\[anchor-id::|\\Z)"
+            start_pattern = re.escape(f"[anchor-id::{change.anchor_id}]")
+            # FIX: Use \\Z to avoid DeprecationWarning
+            regex_pattern = f"({start_pattern})(.*?)(?=\\[anchor-id::|\\Z)"
             
+            match = re.search(regex_pattern, content, flags=re.DOTALL | re.MULTILINE)
+            if not match:
+                logger.warning(f"Anchor '{change.anchor_id}' not found. Skipping change: {change.comment}")
+                continue
+            
+            logger.info(f"Processing operation '{change.operation}' for anchor '{change.anchor_id}'")
+
             if change.operation == "REPLACE_BLOCK":
-                # Replace the content of the block (group 2) associated with anchor_id.
-                # The replacement includes the anchor tag (group 1) and the new content.
-                content = re.sub(regex_pattern, f"\\1{change.new_content}", content, flags=re.DOTALL | re.MULTILINE)
+                replacement = f"\\1{change.new_content}"
+                content = re.sub(regex_pattern, replacement, content, count=1, flags=re.DOTALL | re.MULTILINE)
 
             elif change.operation == "INSERT_AFTER":
-                # Insert new_content after the block associated with anchor_id.
-                # The replacement includes the original block (group 0) and the new content.
-                content = re.sub(regex_pattern, f"\\g<0>{change.new_content}", content, flags=re.DOTALL | re.MULTILINE)
-            
+                replacement = f"\\g<0>{change.new_content}"
+                content = re.sub(regex_pattern, replacement, content, count=1, flags=re.DOTALL | re.MULTILINE)
+
             elif change.operation == "DELETE_SECTION":
-                # Delete the block associated with anchor_id.
-                content = re.sub(regex_pattern, "", content, flags=re.DOTALL | re.MULTILINE)
+                content = re.sub(regex_pattern, "", content, count=1, flags=re.DOTALL | re.MULTILINE)
+            
+            else:
+                logger.warning(f"Unknown operation '{change.operation}'. Skipping.")
 
         return content

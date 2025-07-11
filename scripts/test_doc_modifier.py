@@ -1,62 +1,92 @@
+# 路径: /root/metagpt/mgfr/scripts/test_doc_modifier.py (最终修复版)
 
-from unittest.mock import Mock
+import asyncio
+import sys
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+
+# FIX: 导入pytest库以使用其装饰器
+import pytest
+
+# --- 路径设置 ---
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+# --- 导入待测试模块和依赖 ---
+from metagpt.schema import Message
 from metagpt_doc_writer.roles.doc_modifier import DocModifier
 from metagpt_doc_writer.schemas.doc_structures import ValidatedChangeSet, FullDraft, Change
-from metagpt.schema import Message
 
-def test_doc_modifier_apply_changes():
-    modifier = DocModifier()
-    content = "[anchor-id::abc]Old content.[anchor-id::def]"
-    changes = [Change(operation="REPLACE_BLOCK", anchor_id="abc", new_content="New content.", comment="...")]
+
+def setup_modifier_with_memory(original_content: str, changes: list) -> DocModifier:
+    """一个辅助函数，用于创建一个带有预设记忆的DocModifier实例。"""
     
-    new_content = modifier._apply_changes(content, changes)
-    print("Original content:", content)
-    print("Content after changes:", new_content)
-    
-    assert "[anchor-id::abc]New content." in new_content
-    assert "[anchor-id::def]" in new_content
+    # 使用patch来模拟LLM，因为基类Role在初始化时需要它
+    with patch('metagpt.provider.base_llm.BaseLLM') as mock_llm:
+        modifier = DocModifier()
 
-def test_doc_modifier_act(mocker):
-    # Mock the LLM creation to prevent actual LLM initialization errors
-    mock_llm_instance = Mock()
-    mock_llm_instance.system_prompt = ""
-    mocker.patch('metagpt.context.Context.llm_with_cost_manager_from_llm_config', return_value=mock_llm_instance)
-
-    modifier = DocModifier()
-
-    # Prepare mock messages for the modifier's memory
-    original_content = "[anchor-id::chap1]Chapter 1 content.[anchor-id::chap2]Chapter 2 content."
-    original_draft = FullDraft(content=original_content)
+    # 准备模拟消息并添加到角色的记忆中
+    original_draft = FullDraft(content=original_content, version=1) # 初始化版本号
     modifier.rc.memory.add(Message(content="Original Draft", instruct_content=original_draft))
 
-    changes = [
-        Change(operation="REPLACE_BLOCK", anchor_id="chap1", new_content="Updated Chapter 1 content.", comment="Update chap1"),
-        Change(operation="INSERT_AFTER", anchor_id="chap2", new_content="\n[anchor-id::new_chap]New Chapter content.", comment="Add new chap")
-    ]
     validated_changeset = ValidatedChangeSet(changes=changes)
     modifier.rc.memory.add(Message(content="Validated Changeset", instruct_content=validated_changeset))
 
-    # Simulate receiving news (this is usually handled by the Team/Environment)
-    modifier.rc.news = [Message(content="Trigger act", instruct_content=validated_changeset)]
+    return modifier
 
-    # Call the _act method
-    import asyncio
-    modified_message = asyncio.run(modifier._act())
+# FIX: 为异步测试函数添加 @pytest.mark.asyncio 装饰器
+@pytest.mark.asyncio
+async def test_doc_modifier_logic():
+    """测试DocModifier的核心功能：替换、插入、删除。"""
+    print("--- 启动 DocModifier 逻辑测试 ---")
 
-    # Assertions
-    assert modified_message is not None
-    assert isinstance(modified_message.instruct_content, FullDraft)
-    modified_draft = modified_message.instruct_content
-    print("\nModified Draft Content:")
-    print(modified_draft.content)
+    # 1. 准备原始文档内容
+    original_doc = (
+        "[anchor-id::intro]## 1. Introduction\nThis is the intro section.\n\n"
+        "[anchor-id::main-body]## 2. Main Body\nThis content needs an update.\n\n"
+        "[anchor-id::to-delete]## 3. Obsolete Section\nThis part should be removed.\n\n"
+        "[anchor-id::conclusion]## 4. Conclusion\nThis is the end."
+    )
+    
+    # 2. 定义修改指令
+    changes_to_apply = [
+        # 指令1: 替换 main-body 的内容
+        Change(operation="REPLACE_BLOCK", anchor_id="main-body", new_content="## 2. Main Body\nThis is the UPDATED content.\n\n", comment="Update main body content"),
+        # 指令2: 在 intro 后面插入新章节
+        Change(operation="INSERT_AFTER", anchor_id="intro", new_content="[anchor-id::new-feature]## 1.5. New Feature\nThis is a newly inserted section.\n\n", comment="Add new feature section after intro"),
+        # 指令3: 删除 to-delete 章节
+        Change(operation="DELETE_SECTION", anchor_id="to-delete", comment="Delete the obsolete section 3"),
+        # 指令4: 尝试修改一个不存在的锚点（应该被忽略）
+        Change(operation="REPLACE_BLOCK", anchor_id="non-existent-anchor", new_content="This should not appear.", comment="Attempt to modify non-existent anchor"),
+    ]
 
-    assert "Updated Chapter 1 content." in modified_draft.content
-    assert "New Chapter content." in modified_draft.content
-    assert "[anchor-id::chap1]Updated Chapter 1 content." in modified_draft.content
-    assert "[anchor-id::chap2]Chapter 2 content.\n[anchor-id::new_chap]New Chapter content." in modified_draft.content
+    # 3. 创建带有预设记忆的Modifier实例
+    modifier = setup_modifier_with_memory(original_doc, changes_to_apply)
 
-if __name__ == "__main__":
-    test_doc_modifier_apply_changes()
-    # To run test_doc_modifier_act, you need to pass mocker fixture, which is typically done by pytest.
-    # For standalone execution, you might need a dummy mocker or run it via pytest.
-    # For now, we'll just run the apply_changes test.
+    # 4. 执行_act方法
+    print("\n原始文档:\n" + "="*20 + f"\n{original_doc}")
+    result_message = await modifier._act()
+    
+    # 5. 验证结果
+    assert result_message is not None, "执行act后应返回一个消息"
+    
+    modified_draft = result_message.instruct_content
+    assert isinstance(modified_draft, FullDraft), "返回的消息内容应为FullDraft类型"
+    
+    modified_content = modified_draft.content
+    print("\n修改后文档:\n" + "="*20 + f"\n{modified_content}")
+
+    # 断言：检查修改是否正确应用
+    assert "This is the UPDATED content." in modified_content, "REPLACE_BLOCK 失败"
+    assert "This content needs an update." not in modified_content, "REPLACE_BLOCK 未能移除旧内容"
+    assert "## 1.5. New Feature" in modified_content, "INSERT_AFTER 失败"
+    assert "## 3. Obsolete Section" not in modified_content, "DELETE_SECTION 失败"
+    assert "This should not appear." not in modified_content, "不应修改不存在的锚点"
+    
+    assert modified_draft.version == 2, "版本号应该增加"
+
+    print("\n--- DocModifier 逻辑测试通过！ ---\n")
+
+# # This part is for standalone execution if needed, but pytest is the standard way.
+# if __name__ == "__main__":
+#     asyncio.run(test_doc_modifier_logic())

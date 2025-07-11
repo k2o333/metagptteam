@@ -1,29 +1,62 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/roles/changeset_generator.py
+# 路径: /root/metagpt/mgfr/metagpt_doc_writer/actions/generate_changeset.py (最终确认修复版)
 
-from .base_role import MyBaseRole
-from metagpt.schema import Message
-from metagpt_doc_writer.actions.generate_changeset import GenerateChangeSet
-from metagpt_doc_writer.schemas.doc_structures import ReviewNotes, ValidatedChangeSet, FullDraft
+import json
+from metagpt.actions import Action
+from metagpt.logs import logger
+from metagpt_doc_writer.schemas.doc_structures import ReviewNotes, FullDraft, ValidatedChangeSet
+from metagpt.utils.common import OutputParser
+from typing import ClassVar
 
-class ChangeSetGenerator(MyBaseRole):
-    name: str = "ChangeSetGenerator"
-    profile: str = "ChangeSet Generator"
-    goal: str = "Convert natural language review notes into a validated changeset."
+CHANGESET_PROMPT: ClassVar[str] = """
+You are a precise instruction conversion assistant. Your task is to convert a director's natural language review notes into a structured JSON `ChangeSet`.
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.set_actions([GenerateChangeSet])
-        self._watch({ReviewNotes})
+**RULES:**
+1.  **USE HASHED ANCHORS**: You MUST use the `[anchor-id::...]` tags from the document for positioning. The anchor_id is the 12-character hex string.
+2.  **OPERATIONS**: Supported operations are `REPLACE_BLOCK`, `INSERT_AFTER`, `DELETE_SECTION`.
+3.  **OUTPUT**: Respond ONLY with a valid JSON object. Do not add any other text or explanations.
 
-    async def _act(self) -> Message:
-        # Correctly filter messages from memory
-        memories = self.get_memories()
-        review_notes_msg = [m for m in memories if isinstance(m.instruct_content, ReviewNotes)][-1]
-        full_draft_msg = [m for m in memories if isinstance(m.instruct_content, FullDraft)][-1]
+**Director's Review Notes**:
+---
+{review_notes}
+---
+
+**Original Document (with anchors for context)**:
+---
+{draft_content}
+---
+
+**Your JSON `ChangeSet`**:
+"""
+
+class GenerateChangeSet(Action):
+    """
+    An action to convert natural language feedback into a structured ChangeSet.
+    """
+    async def run(self, review_notes: ReviewNotes, full_draft: FullDraft) -> ValidatedChangeSet:
+        logger.info("Generating changeset from review notes...")
         
-        validated_changeset = await self.actions[0].run(
-            review_notes=review_notes_msg.instruct_content,
-            full_draft=full_draft_msg.instruct_content
+        prompt = CHANGESET_PROMPT.format(
+            review_notes=review_notes.feedback,
+            draft_content=full_draft.content
         )
         
-        return Message(content="Validated changeset generated", instruct_content=validated_changeset)
+        response_json_str = await self._aask(prompt)
+        
+        try:
+            # FIX: Use the correct, simplified call to parse_code.
+            # This is the critical fix.
+            data_dict = OutputParser.parse_code(text=response_json_str)
+            
+            if isinstance(data_dict, str):
+                # If parse_code returns a string, it means it just stripped the markdown.
+                # We still need to parse it as JSON.
+                data_dict = json.loads(data_dict)
+            
+            changeset = ValidatedChangeSet(**data_dict)
+            logger.info(f"Successfully generated and validated changeset with {len(changeset.changes)} changes.")
+            return changeset
+
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            logger.error(f"Failed to parse LLM output into a valid ChangeSet. Error: {e}. Output:\n---\n{response_json_str}\n---")
+            # In a real scenario, this could trigger a repair loop. For now, we return empty.
+            return ValidatedChangeSet(changes=[])
