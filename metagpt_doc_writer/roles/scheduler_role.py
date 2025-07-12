@@ -1,12 +1,12 @@
 # 路径: /root/metagpt/mgfr/metagagpt_doc_writer/roles/scheduler_role.py (最终状态机版)
 
 import asyncio
-from metagpt.roles import Role
+from .base_role import DocWriterBaseRole
 from metagpt.schema import Message
 from metagpt.logs import logger
 from metagpt_doc_writer.schemas.doc_structures import Plan, Task
 
-class SchedulerRole(Role):
+class SchedulerRole(DocWriterBaseRole):
     name: str = "Scheduler"
     profile: str = "Task Scheduler"
     goal: str = "Execute a given plan by dispatching tasks to appropriate roles."

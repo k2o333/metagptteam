@@ -1,130 +1,179 @@
-# 路径: /root/metagpt/mgfr/scripts/run.py (修复并优化的版本)
+# /root/metagpt/mgfr/scripts/run.py (最终完整版)
 
 import sys
 import asyncio
+import json
 from pathlib import Path
+import yaml
+import os
 
-# --- 路径设置，确保自定义模块能被正确导入 ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from metagpt.config2 import Config
 from metagpt.logs import logger
-from metagpt.provider.openai_api import OpenAILLM
-from metagpt.roles import Role  # 引入Role基类，用于类型提示
+from metagpt.team import Team
+from metagpt.schema import Message
+from metagpt.actions.add_requirement import UserRequirement
 
-# --- 导入你的自定义组件 ---
-try:
-    from metagpt_doc_writer.roles.planner import Planner
-    from metagpt_doc_writer.actions.research import Research
-    from metagpt_doc_writer.actions.write import Write
-    from metagpt_doc_writer.actions.review import Review
-    from metagpt_doc_writer.schemas.doc_structures import Plan
-    from scripts.team_scheduler import Scheduler # 引入我们新的、更可靠的调度器
-except ImportError as e:
-    logger.error(f"导入自定义组件失败，请检查文件路径和名称。错误: {e}")
-    sys.exit(1)
+from metagpt_doc_writer.mcp.manager import MCPManager
+from metagpt_doc_writer.roles import (
+    Archiver,
+    ChangeSetGenerator,
+    ChiefPM,
+    DocAssembler,
+    DocModifier,
+    GroupPM,
+    PerformanceMonitor,
+    QAAgent,
+    TaskDispatcher,
+    TaskRefiner,
+    TechnicalWriter,
+)
+from metagpt_doc_writer.schemas.doc_structures import (
+    FinalDelivery,
+    UserRequirement as CustomUserRequirement,
+)
 
-
-# --- 日志和输出路径设置 ---
 LOGS_DIR = PROJECT_ROOT / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 logger.add(LOGS_DIR / "run.log", rotation="10 MB", retention="1 week", level="INFO")
 
-OUTPUTS_DIR = PROJECT_ROOT / "outputs"
-OUTPUTS_DIR.mkdir(exist_ok=True)
+OUTPUT_PATH = PROJECT_ROOT / "outputs"
+OUTPUT_PATH.mkdir(exist_ok=True)
+
+ARCHIVE_PATH = PROJECT_ROOT / "archive"
+ARCHIVE_PATH.mkdir(exist_ok=True)
 
 
-async def start_app(idea: str, investment: float = 20.0, n_round: int = 40):
-    """
-    使用显式编排的流水线模式启动文档生成流程。
-    """
-    # --- 1. 配置加载和LLM初始化 ---
-    logger.info("正在加载配置...")
-    config = Config.default()
-    if not config.llm or not getattr(config.llm, 'api_key', None):
-        logger.error("LLM配置不完整，请检查 ~/.metagpt/config2.yaml 或项目内的 configs/config2.yaml 文件。")
-        return
-        
-    # 强制使用 open_llm 类型以支持通过 base_url 连接的任何兼容OpenAI的API
-    config.llm.api_type = "open_llm" 
-    llm_instance = OpenAILLM(config=config.llm)
-    logger.info(f"LLM实例创建成功，模型: '{llm_instance.model}'")
+def find_config_path() -> Path:
+    """Helper to find the configuration file."""
+    if "METAGPT_CONFIG_PATH" in os.environ:
+        return Path(os.environ["METAGPT_CONFIG_PATH"])
+    home_config = Path.home() / ".metagpt/config2.yaml"
+    if home_config.exists():
+        return home_config
+    project_config = PROJECT_ROOT / "configs" / "config2.yaml"
+    if project_config.exists():
+        return project_config
+    return None
 
-    # ==========================================================
-    # Phase 1: 规划阶段 (Planning Phase)
-    # ==========================================================
-    logger.info("--- 规划阶段开始 ---")
-    planner = Planner(llm=llm_instance)
-    
-    # 运行Planner来获取计划。这里我们直接调用其run方法，而不是通过Team。
-    # 这是一个更直接、更可靠的获取计划的方式。
-    plan: Plan = await planner.actions[0].run(goal=idea)
-    if not plan or not plan.tasks:
-        logger.error("规划失败，未能生成有效计划。流程终止。")
-        return
-    logger.info(f"✅ 规划成功，生成了 {len(plan.tasks)} 个任务。")
-    logger.debug(f"生成的计划详情:\n{plan.model_dump_json(indent=2)}")
 
-    # ==========================================================
-    # Phase 2: 执行阶段 (Execution Phase)
-    # ==========================================================
-    logger.info("--- 执行阶段开始 ---")
-    
-    # 1. 定义所有可执行的角色和他们能执行的Action
-    # 这里的'Executor'是一个概念，你可以有多个不同技能的'Executor'
-    # 我们用一个字典来管理他们，key是Action的类型
-    executor_role = Role() # 创建一个通用的Role来承载actions
-    executor_role.set_llm(llm_instance)
-    executor_role.set_actions([Research(), Write(), Review()])
-    
-    # 2. 创建并运行调度器
-    # 调度器接收计划和所有可执行角色
-    scheduler = Scheduler(plan=plan, roles={"RESEARCH": executor_role, "WRITE": executor_role, "REVIEW": executor_role})
-    await scheduler.run()
-    
-    task_results = scheduler.task_results
+async def main(idea: str):
+    logger.info(f"Starting document generation process for: '{idea}'")
 
-    # ==========================================================
-    # 4. 结果整合与输出 (Result Integration)
-    # ==========================================================
-    logger.info("--- 结果整合阶段开始 ---")
-    
-    if len(task_results) != len(plan.tasks):
-        logger.warning("部分任务未能完成。报告中将注明未完成的任务。")
+    config_yaml_path = find_config_path()
+    if not config_yaml_path or not config_yaml_path.exists():
+        logger.error("MetaGPT configuration file (config2.yaml) not found.")
+        sys.exit(1)
 
-    final_content = [f"# PRD: {idea}\n\n---\n"]
-    
-    for task in plan.tasks:
-        if task.task_id in task_results:
-            result = task_results[task.task_id]
-            final_content.append(f"## ✅ Task: {task.instruction}\n")
-            final_content.append(f"**Action Type**: `{task.action_type}`\n")
-            final_content.append(f"**Result**:\n\n{result}\n\n---\n")
-        else:
-            final_content.append(f"## ❌ Task: {task.instruction}\n")
-            final_content.append("**This task was not completed.**\n\n---\n")
-    
-    sanitized_idea = "".join(c if c.isalnum() else "_" for c in idea)[:50]
-    output_path = OUTPUTS_DIR / f"prd_{sanitized_idea}.md"
-    
+    full_config = {}
     try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write("".join(final_content))
-        logger.info(f"🎉 最终文档已成功生成！请查看: {output_path}")
+        with open(config_yaml_path, "r", encoding="utf-8") as f:
+            full_config = yaml.safe_load(f)
+        logger.info(f"Full configuration loaded successfully from '{config_yaml_path}'")
     except Exception as e:
-        logger.error(f"写入最终文件失败: {e}")
+        logger.error(f"Failed to load or parse YAML configuration: {e}")
+        sys.exit(1)
 
-    logger.info("文档生成流程全部完成！")
+    # Let MetaGPT load its standard configs
+    os.environ["METAGPT_CONFIG_PATH"] = str(config_yaml_path)
+    from metagpt.config2 import Config
+    main_config = Config.default()
+
+    # Load our custom configurations from the full dictionary
+    team_settings = full_config.get("team_settings", {})
+    llm_activation = full_config.get("llm_activation", {})
+    mcp_server_configs = full_config.get("mcp_servers", {})
+    mcp_bindings = full_config.get("role_mcp_bindings", {})
+
+    # Override investment to "disable" billing-based termination
+    investment = 10000.0
+    n_round = team_settings.get("n_round", 200)
+
+    logger.info(f"Billing effectively disabled (investment set to ${investment}).")
+    logger.info(f"Team run settings: n_round={n_round}.")
+    logger.info(f"LLM Activation: {llm_activation}")
+    logger.info(f"MCP Bindings: {mcp_bindings}")
+    logger.info(f"MCP Servers to start: {list(mcp_server_configs.keys())}")
+
+
+    manager = MCPManager(server_configs=mcp_server_configs)
+    await manager.start_servers()
+
+    team = Team(investment=investment, n_round=n_round)
+
+    # Pass all necessary configurations to the roles that need them.
+    # Roles will then pass these down to their actions.
+    shared_configs = {
+        "llm_activation": llm_activation,
+        "mcp_manager": manager,
+        "mcp_bindings": mcp_bindings,
+    }
+
+    team.hire([
+        ChiefPM(**shared_configs),
+        GroupPM(**shared_configs),
+        TaskDispatcher(),
+        TaskRefiner(**shared_configs),
+        TechnicalWriter(**shared_configs),
+        DocAssembler(),
+        DocModifier(),
+        QAAgent(**shared_configs),
+        ChangeSetGenerator(**shared_configs),
+        PerformanceMonitor(),
+        Archiver(archive_path=str(ARCHIVE_PATH)),
+    ])
+    logger.info("Team hired successfully.")
+
+    logger.info(f"Publishing initial user requirement: '{idea}'")
+
+    cause_by_str = f"{UserRequirement.__module__}.{UserRequirement.__name__}"
+    initial_message = Message(
+        content=idea,
+        instruct_content=CustomUserRequirement(content=idea),
+        role="Human",
+        cause_by=cause_by_str,
+        send_to="ChiefPM",
+    )
+
+    team.env.publish_message(initial_message)
+
+    logger.info(f"Starting multi-agent run...")
+    await team.run()
+
+    logger.info(f"Document generation process for '{idea}' finished.")
+
+    # ... (Reporting and archiving logic remains the same)
+    monitor = next((role for role in team.env.roles.values() if isinstance(role, PerformanceMonitor)), None)
+    if monitor:
+        report = monitor.get_performance_report()
+        report_path = OUTPUT_PATH / "performance_report.json"
+        with open(report_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, indent=2)
+        logger.info(f"Performance report saved to {report_path}")
+
+    archiver = next((role for role in team.env.roles.values() if isinstance(role, Archiver)), None)
+    if archiver and archiver.rc.memory.get():
+        logger.info("Triggering Archiver...")
+        final_doc_placeholder = OUTPUT_PATH / "final_document.md"
+        if not final_doc_placeholder.exists():
+            final_doc_placeholder.touch()
+        
+        final_delivery_msg = Message(
+            content="Document is finalized.",
+            instruct_content=FinalDelivery(document_path=str(final_doc_placeholder))
+        )
+        await archiver.run(final_delivery_msg)
+        
+    await manager.close()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        user_idea = " ".join(sys.argv[1:])
-    else:
-        user_idea = "写一个给定技术文档，能出代码的，metagpt的多智能体脚本的prd"
-    
+    idea_from_args = " ".join(sys.argv[1:])
+    if not idea_from_args:
+        idea_from_args = "Write a detailed technical guide on how to install autogen and implement a concurrent multi-expert discussion using its GroupChat feature."
+
     try:
-        asyncio.run(start_app(idea=user_idea))
+        asyncio.run(main(idea=idea_from_args))
     except Exception as e:
-        logger.error(f"主程序发生未捕获的异常并终止: {e}", exc_info=True)
+        logger.error(f"An unexpected error occurred: {e}", exc_info=True)

@@ -1,8 +1,14 @@
-# 路径: /root/metagpt/mgfr/metagpt_doc_writer/schemas/doc_structures.py (完整版)
+# 文件路径: /root/metagpt/mgfr/metagpt_doc_writer/schemas/doc_structures.py (最终修复版)
 
 import uuid
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+
+# 【关键新增】定义一个我们自己控制的、纯净的 UserRequirement 类。
+# 它只包含一个字符串字段，确保100%可序列化。
+class UserRequirement(BaseModel):
+    """A simple, clean Pydantic model for the initial user requirement."""
+    content: str = Field(..., description="The user's initial idea or instruction.")
 
 # --- 规划器与调度器使用的核心数据结构 ---
 class Task(BaseModel):
@@ -73,7 +79,6 @@ class ProjectArchived(BaseModel):
     archive_path: str = Field(..., description="Path to the archived project files")
 
 # --- 新增的QA质检相关数据结构 ---
-
 class QAFeedback(BaseModel):
     """A single piece of feedback from the QA process."""
     feedback_type: str = Field(..., description="Type of issue, e.g., 'Consistency', 'Clarity', 'Formatting', 'Fact-Checking'")
@@ -83,3 +88,20 @@ class QAFeedback(BaseModel):
 class QAReport(BaseModel):
     """A structured report containing feedback from the QAAgent."""
     feedbacks: List[QAFeedback] = Field(..., description="A list of feedback items from the QA check.")
+
+# --- 【关键新增】: 定义 Approval Schema ---
+class Approval(BaseModel):
+    """
+    一个信号类，表示一个阶段或整个项目已被批准。
+    它的存在本身就是一种信息。
+    """
+    comment: str = Field(default="Approved", description="Optional comment for the approval.")
+
+# --- 新增的工具调用相关数据结构 ---
+class ToolCall(BaseModel):
+    tool_name: str = Field(..., description="The name of the tool to be called.")
+    args: Dict[str, Any] = Field(default_factory=dict, description="The arguments for the tool call.")
+
+class ToolOutput(BaseModel):
+    output: str = Field(..., description="The output from the tool execution.")
+    is_error: bool = Field(False, description="Indicates if an error occurred during tool execution.")

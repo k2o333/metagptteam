@@ -1,45 +1,26 @@
-# 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/qa_agent.py (最终修复版)
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/qa_agent.py (原生重构版)
 
-from metagpt.logs import logger
+from .base_role import DocWriterBaseRole
 from metagpt.schema import Message
-from .base_role import MyBaseRole
+from metagpt.logs import logger
 from metagpt_doc_writer.actions.automated_check import AutomatedCheck
 from metagpt_doc_writer.schemas.doc_structures import FullDraft, QAReport
 
-class QAAgent(MyBaseRole):
+class QAAgent(DocWriterBaseRole): # 【关键修正】: 继承自 Role
     name: str = "QAAgent"
     profile: str = "Quality Assurance Agent"
     goal: str = "To ensure the quality and accuracy of the document through automated checks."
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([AutomatedCheck()])
-        self._watch({FullDraft})  # Triggered when a new full draft is ready
+        self.set_actions([AutomatedCheck])
+        self._watch({FullDraft})
 
     async def _act(self) -> Message:
-        """
-        Performs a QA check on the latest document draft.
-        FIX: This method now directly retrieves its action and does not depend on a
-             pre-set self.rc.todo, making it more robust for direct calls in tests.
-        """
         logger.info(f"Executing action: {self.name}")
         
-        # FIX: Directly get the action from the role's action list.
-        # This is robust for roles with a single, clear purpose.
-        check_action = self.actions[0]
-        if not isinstance(check_action, AutomatedCheck):
-            logger.error(f"Action setup error: Expected AutomatedCheck, found {type(check_action)}.")
-            return None
+        draft_msg = self.rc.history[-1]
         
-        logger.info(f"{self._setting}: Running action '{check_action.name}'")
+        qa_report = await self.rc.todo.run(draft_msg.instruct_content)
         
-        memories = self.get_memories()
-        try:
-            draft_msg = next(m for m in reversed(memories) if isinstance(m.instruct_content, FullDraft))
-        except StopIteration:
-            logger.warning("No FullDraft found in memory for QA check. Nothing to do.")
-            return None
-
-        qa_report = await check_action.run(draft_msg.instruct_content)
-        
-        return Message(content=qa_report.model_dump_json(indent=2), instruct_content=qa_report)
+        return Message(content=qa_report.model_dump_json(indent=2), instruct_content=qa_report, cause_by=type(self.rc.todo))

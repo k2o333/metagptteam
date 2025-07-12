@@ -1,12 +1,12 @@
 # 路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/planner.py (最终版)
-from metagpt.roles import Role
+from .base_role import DocWriterBaseRole
 from metagpt.schema import Message
 from metagpt.actions.add_requirement import UserRequirement
 from metagpt_doc_writer.actions.create_plan import CreatePlan
 from metagpt_doc_writer.schemas.doc_structures import Plan
 from metagpt.logs import logger
 
-class Planner(Role):
+class Planner(DocWriterBaseRole):
     name: str = "Planner"
     profile: str = "Master Planner"
     goal: str = "Decompose a user's requirement into a detailed, executable plan."

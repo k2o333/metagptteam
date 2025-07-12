@@ -1,19 +1,20 @@
-# 路径: /root/metagpt/mgfr/metagpt_doc_writer/actions/generate_changeset.py
+# 文件路径: /root/metagpt/mgfr/metagpt_doc_writer/actions/generate_changeset.py (已修正)
 
 import json
 from metagpt.actions import Action
 from metagpt.logs import logger
-from metagpt_doc_writer.schemas.doc_structures import ReviewNotes, FullDraft, ValidatedChangeSet, Change
 from metagpt.utils.common import OutputParser
-from typing import ClassVar
+from typing import ClassVar # <-- 【关键】导入ClassVar
+from metagpt_doc_writer.schemas.doc_structures import ReviewNotes, FullDraft, ValidatedChangeSet
 
+# 【关键修正】: 使用 ClassVar 注解
 CHANGESET_PROMPT: ClassVar[str] = """
 You are a precise instruction conversion assistant. Your task is to convert a director's natural language review notes into a structured JSON `ChangeSet`.
 
 **RULES:**
-1.  **USE HASHED ANCHORS**: You MUST use the `[anchor-id::...]` tags from the document for positioning.
+1.  **USE HASHED ANCHORS**: You MUST use the `[anchor-id::...]` tags from the document for positioning. The anchor_id is the 12-character hex string.
 2.  **OPERATIONS**: Supported operations are `REPLACE_BLOCK`, `INSERT_AFTER`, `DELETE_SECTION`.
-3.  **OUTPUT**: Respond ONLY with a valid JSON object. Do not add any other text.
+3.  **OUTPUT**: Respond ONLY with a valid JSON object. Do not add any other text or explanations.
 
 **Director's Review Notes**:
 ---
@@ -43,17 +44,14 @@ class GenerateChangeSet(Action):
         response_json_str = await self._aask(prompt)
         
         try:
-            # Use MetaGPT's parser which is more robust
-            data_dict = OutputParser.parse_code(block=None, text=response_json_str)
+            data_dict = OutputParser.parse_code(text=response_json_str)
             if isinstance(data_dict, str):
-                data_dict = json.loads(data_dict) # Fallback if it's a plain string
+                data_dict = json.loads(data_dict)
             
-            # Here we can add validation logic in the future
             changeset = ValidatedChangeSet(**data_dict)
-            logger.info(f"Successfully generated changeset with {len(changeset.changes)} changes.")
+            logger.info(f"Successfully generated and validated changeset with {len(changeset.changes)} changes.")
             return changeset
 
         except (json.JSONDecodeError, TypeError, ValueError) as e:
-            logger.error(f"Failed to parse LLM output into a valid ChangeSet. Error: {e}. Output: {response_json_str}")
-            # In a real scenario, this would trigger the repair loop. For now, we return empty.
+            logger.error(f"Failed to parse LLM output into a valid ChangeSet. Error: {e}. Output:\n---\n{response_json_str}\n---")
             return ValidatedChangeSet(changes=[])

@@ -112,20 +112,94 @@
     *   **任务:** 在`WriteSection` Action的`run`方法中，生成初稿后，立即调用一个内部的`_reflect`方法，使用特定Prompt让LLM对初稿打分并给出修订版。
     *   **验收标准:** 单元测试中，断言Action的最终输出是经过反思的**修订稿**，而不是初稿。
 
-*   **第10步: 【架构重塑】实现基于MCP的动态工具调用**
-    *   **理念:** 工具调用不再是代码层面的特殊解析，而是LLM驱动的、更自然的对话流程。
-    *   **任务:**
-        1.  **创建`ToolAsAgent`适配器**，将`BaseTool`包装成一个具备`aask`方法的“对话参与者”。
-        2.  **重构`WriteSection`的`run`方法**，使其成为一个**MCP驱动的状态机**：
-            a.  **LLM决策:** 首次调用LLM。
-            b.  **解析与调度:** 检查LLM回复是否包含`@ToolName`的“召唤指令”。
-            c.  **工具对话:** 若包含，则调用`ToolAsAgent.aask()`，将工具的响应消息也加入`messages`列表。
-            d.  **循环生成:** **返回步骤a**，让LLM基于工具返回的结果继续生成，直到回复中不再包含召唤指令。
-        3.  **重写Prompt**，明确告知`TechnicalWriter`有哪些可用的工具专家以及如何通过`@ToolName(query)`的格式在对话中“召唤”它们。
-    *   **验收标准:**
-        *   **标准1 (多轮调用):** 对于需要工具的任务，断言`llm.acompletion`被调用了**至少两次**，且相应工具的`run`方法被调用。
-        *   **标准2 (单轮完成):** 对于无需工具的任务，断言`llm.acompletion`只被调用**一次**。
-        *   **标准3 (日志清晰):** 日志清晰地记录下整个MCP对话流，包括LLM的召唤、工具的响应、以及LLM的最终整合。
+好的，这是一个非常深刻且重要的架构需求。这意味着我们不仅仅是让`TechnicalWriter`一个角色能用工具，而是要建立一个**通用的、可被任何Agent复用的MCP能力层**。同时，我们还要创建一个**专门的`ToolAgent`**，它不做其他事，只负责执行工具调用，这非常符合单一职责原则。
+
+我将根据这个新要求，重写 `dev_order.md` 的第10步，并提出一个新的第10.5步来体现这个架构演进。
+
+---
+
+### **`dev_order.md` - 阶段二，第10步 & 新增第10.5步 (MCP架构演进版)**
+
+这部分内容将替换原有的第10步，并增加一个新步骤。
+
+---
+
+### **阶段二：第10步: 【架构重塑】构建通用的MCP能力层**
+
+**目标**: 将MCP客户端的交互逻辑从任何特定`Action`中解耦出来，构建一个**全局的、可被任何Agent按需访问的MCP能力层**。这标志着系统从“特定角色使用工具”演进为“任何角色都可以通过标准协议与外部世界交互”。
+
+**理念**:
+*   **能力即服务 (Capability as a Service)**: MCP工具调用能力不应被硬编码在某个`Action`中，而应作为一种类似“微服务”的基础设施存在，供团队中所有Agent按需调用。
+*   **配置驱动 (Configuration-Driven)**: 一个Agent是否能使用MCP工具，以及能使用哪些工具，应该由**配置**决定，而不是由其代码实现决定，从而实现最大的灵活性。
+*   **标准交互范式 (Standard Interaction Paradigm)**: 任何Agent想调用外部工具，都遵循统一的模式：生成一个特殊的`ToolCall`消息，由专门的Agent来处理。
+
+**任务**:
+
+1.  **创建 MCP Client 基础设施 (`metagpt_doc_writer/mcp/`)**:
+    *   **`transport.py` (StdioTransport)** 和 **`client.py` (MCPClient)** 的实现保持不变（基于我们已验证的V2版本）。它们是稳定可靠的底层通信模块。
+
+2.  **创建 `MCPManager` 作为全局服务**:
+    *   **`utils/mcp_manager.py`**: `MCPManager`的职责不变，它仍然是所有`MCPClient`的管理者和工具请求的中央路由器。
+    *   **实例化**: `MCPManager` 将在主流程（如`run.py`）的顶层被**实例化一次**，并作为一个**单例服务**存在。
+
+3.  **定义标准的工具调用消息 (`schemas/doc_structures.py`)**:
+    *   **新增`ToolCall`和`ToolOutput` Schema**:
+        *   `ToolCall(tool_name: str, args: dict)`: 当一个LLM-Agent想要调用工具时，它不再直接执行代码，而是生成一个包含此`ToolCall`对象的`Message`。
+        *   `ToolOutput(tool_name: str, output: str, is_error: bool)`: 这是工具执行后返回的结果，同样封装在`Message`中。
+
+**验收标准**:
+
+*   **标准1 (基础设施)**: `MCPClient`, `StdioTransport`, `MCPManager` 的单元测试通过，能成功连接到外部MCP Server并列出工具。
+*   **标准2 (新Schema)**: `ToolCall` 和 `ToolOutput` 的Pydantic模型定义完成。
+
+---
+
+### **阶段二：第10.5步: 实现双模态工具调用与`ToolAgent`**
+
+**目标**: 基于第10步构建的通用MCP能力层，实现两种工具调用模式：**1) 任何Agent的内部直接调用** 和 **2) 通过专门的`ToolAgent`进行委托调用**。
+
+**任务**:
+
+1.  **模式一：任何Agent的内部直接调用**
+    *   **重构`BaseDocWriterRole`**:
+        *   为其增加一个 `mcp_manager: Optional[MCPManager] = None` 属性。
+        *   增加一个 `async def call_tool(self, tool_name: str, args: dict)` 的辅助方法，该方法内部直接调用`self.mcp_manager.call_tool()`。
+    *   **重构`WriteSection` Action**:
+        *   `run`方法现在接收`MCPManager`作为参数。
+        *   其内部的MCP状态机逻辑不变，但当需要调用工具时，它直接调用`self.owner.call_tool()`（`self.owner`指向拥有该Action的Role实例）。
+    *   **`TechnicalWriter`的配置**: 在初始化`TechnicalWriter`时，将全局的`MCPManager`实例注入给它。
+        ```python
+        # In run.py
+        mcp_manager = MCPManager(...)
+        await mcp_manager.start_all_servers()
+        
+        team.hire([
+            TechnicalWriter(mcp_manager=mcp_manager),
+            # ... other roles
+        ])
+        ```
+
+2.  **模式二：实现专门的`ToolAgent`**
+    *   **创建`metagpt_doc_writer/roles/tool_agent.py`**:
+        *   这是一个**非LLM的工具人角色**。
+        *   它在初始化时接收全局的 `MCPManager` 实例。
+        *   它 `_watch({ToolCall})`，专门监听`ToolCall`消息。
+        *   其 `_act` 方法的逻辑是：
+            1.  从收到的`ToolCall`消息中解析出`tool_name`和`args`。
+            2.  调用`self.mcp_manager.call_tool(tool_name, args)`。
+            3.  将返回结果封装成一个`ToolOutput`消息并发布。
+
+3.  **整合与测试**:
+    *   **`test_direct_tool_call.py`**: 创建一个测试，验证`TechnicalWriter`能够成功地、直接地调用`MCPManager`执行工具。
+    *   **`test_delegated_tool_call.py`**: 创建一个测试，模拟一个Agent（可以是任何Agent）发布一个`ToolCall`消息，然后验证`ToolAgent`能够接收到该消息，执行工具，并发布正确的`ToolOutput`消息。
+
+**验收标准**:
+
+*   **标准1 (直接调用)**: `test_direct_tool_call.py`通过。日志显示`TechnicalWriter`的`_act`方法内部成功获取了工具返回的结果。
+*   **标准2 (委托调用)**: `test_delegated_tool_call.py`通过。日志显示`ToolAgent`正确地响应了`ToolCall`消息，并发布了`ToolOutput`消息。
+*   **标准3 (灵活性)**: 两种模式可以共存。系统现在既支持有工具使用能力的“专家Agent”，也支持将工具调用作为一项公共服务委托给“专员Agent”。
+
+
 
 *   **第11步: 【功能统一】为`ReviewAndCommand`实现MCP扩展**
     *   **理念:** 统一`ChiefPM`的复杂审阅逻辑与`TechnicalWriter`的工具调用逻辑，均使用MCP框架。
