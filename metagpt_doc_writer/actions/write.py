@@ -1,8 +1,8 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/actions/write.py (最终实现版)
+# /root/metagpt/mgfr/metagpt_doc_writer/actions/write.py
 
 from metagpt.actions import Action
 from metagpt.logs import logger
-from typing import ClassVar
+from typing import ClassVar, Optional, Dict
 
 class Write(Action):
     PROMPT_TEMPLATE: ClassVar[str] = """
@@ -21,13 +21,9 @@ class Write(Action):
     def __init__(self, name="WRITE", **kwargs):
         super().__init__(name=name, **kwargs)
         
-    async def run(self, instruction: str, context: str = "", *args, **kwargs) -> str:
+    async def run(self, instruction: str, context: str = "", **kwargs) -> str:
         logger.info(f"Executing Write Action with instruction: {instruction}")
-
         prompt = self.PROMPT_TEMPLATE.format(instruction=instruction, context=context)
-        
-        # [实现] 调用LLM来执行真正的写作
-        result = await self.llm.aask(prompt, system_msgs=["You are a professional technical writer."])
-        
+        result = await self._aask(prompt, system_msgs=["You are a professional technical writer."])
         logger.info(f"Writing result for '{instruction}':\n{result[:200]}...")
         return result

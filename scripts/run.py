@@ -20,7 +20,7 @@ from metagpt.actions.add_requirement import UserRequirement as OrigUserRequireme
 
 # 导入角色和Schema
 from metagpt_doc_writer.roles import ChiefPM, Executor, Archiver
-from metagpt_doc_writer.schemas.doc_structures import Plan, Task, FinalDelivery, UserRequirement
+from metagpt_doc_writer.schemas.doc_structures import Plan, Task, UserRequirement
 from metagpt_doc_writer.mcp.manager import MCPManager
 
 # --- 全局常量 ---
@@ -33,7 +33,7 @@ ARCHIVE_PATH = PROJECT_ROOT / "archive"
 ARCHIVE_PATH.mkdir(exist_ok=True)
 
 async def main(idea: str, investment: float = 100.0):
-    """主异步函数，作为确定性的主调度循环，并正确管理共享资源。"""
+    """主异步函数，使用Context对象管理共享资源。"""
     logger.info(f"Starting document generation process for: '{idea}'")
 
     # --- 1. 配置加载 ---
@@ -46,33 +46,30 @@ async def main(idea: str, investment: float = 100.0):
     with open(config_yaml_path, 'r', encoding='utf-8') as f:
         full_config = yaml.safe_load(f)
 
-    # --- 2. 创建独立的共享资源 (Context 和 MCPManager) ---
+    # --- 2. 创建和配置共享的Context对象 ---
     config = Config.from_yaml_file(config_yaml_path)
     if hasattr(config, 'human_in_loop'):
         config.human_in_loop = False
     
     ctx = Context(config=config)
     
+    # 初始化MCP并放入Context
     mcp_server_configs = full_config.get("mcp_servers", {})
     mcp_manager = MCPManager(server_configs=mcp_server_configs)
     await mcp_manager.start_servers()
     
     logger.info("Shared Context and MCP Manager created successfully.")
 
-    # --- 3. 初始化角色，并通过构造函数注入依赖 ---
+    # --- 3. 初始化角色，并传入依赖 ---
     mcp_bindings = full_config.get("role_mcp_bindings", {})
     
     chief_pm = ChiefPM(context=ctx, mcp_manager=mcp_manager, mcp_bindings=mcp_bindings)
     executor = Executor(context=ctx, mcp_manager=mcp_manager, mcp_bindings=mcp_bindings)
     archiver = Archiver(context=ctx, archive_path=str(ARCHIVE_PATH))
     
-    logger.info("Core roles (ChiefPM, Executor, Archiver) initialized with dependencies.")
+    logger.info("Core roles (ChiefPM, Executor, Archiver) initialized.")
 
-    # =======================================================================
-    #  手动串行调度循环 (代替 team.run())
-    # =======================================================================
-    
-    # 步骤 1: ChiefPM 制定计划
+    # --- 4. 手动串行调度循环 ---
     logger.info("--- Phase 1: Planning ---")
     user_req_msg = Message(content=idea, instruct_content=UserRequirement(content=idea), cause_by=OrigUserRequirement)
     plan_msg = await chief_pm.run(user_req_msg)
@@ -84,13 +81,10 @@ async def main(idea: str, investment: float = 100.0):
     plan: Plan = plan_msg.instruct_content
     logger.success(f"Plan generated with {len(plan.tasks)} tasks.")
 
-    # 步骤 2: 串行执行任务
     logger.info("--- Phase 2: Execution ---")
     completed_tasks: dict[str, Task] = {}
-    
     while len(completed_tasks) < len(plan.tasks):
         ready_tasks = plan.get_ready_tasks(list(completed_tasks.keys()))
-        
         if not ready_tasks:
             if len(completed_tasks) < len(plan.tasks):
                 logger.warning("Execution loop finished, but not all tasks are complete. Possible dependency cycle.")
@@ -100,7 +94,6 @@ async def main(idea: str, investment: float = 100.0):
         
         logger.info(f"Executing task '{current_task.task_id}': {current_task.instruction}")
         
-        # Executor现在直接接收Task和完整的已完成任务字典
         updated_task = await executor.run(current_task, completed_tasks)
         completed_tasks[updated_task.task_id] = updated_task
         
@@ -108,7 +101,7 @@ async def main(idea: str, investment: float = 100.0):
 
     logger.info("--- All tasks executed. ---")
 
-    # 步骤 3: 结果处理与归档
+    # --- 5. 结果处理与归档 ---
     logger.info("--- Phase 3: Finalizing ---")
     final_doc_content = f"# PRD: {idea}\n\n---\n"
     for task_id in sorted(plan.task_map.keys()):
@@ -125,7 +118,7 @@ async def main(idea: str, investment: float = 100.0):
 
     await archiver.archive(final_doc_path=str(final_doc_path), all_tasks=completed_tasks, plan=plan)
 
-    # --- 步骤 4: 清理与关闭 ---
+    # --- 6. 清理与关闭 ---
     await mcp_manager.close()
     logger.info("MCP Manager connections closed.")
 

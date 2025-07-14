@@ -1,8 +1,8 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/actions/review.py (最终实现版)
+# /root/metagpt/mgfr/metagpt_doc_writer/actions/review.py
 
 from metagpt.actions import Action
 from metagpt.logs import logger
-from typing import ClassVar
+from typing import ClassVar, Optional, Dict
 
 class Review(Action):
     PROMPT_TEMPLATE: ClassVar[str] = """
@@ -20,13 +20,9 @@ class Review(Action):
     def __init__(self, name="REVIEW", **kwargs):
         super().__init__(name=name, **kwargs)
 
-    async def run(self, instruction: str, context: str = "", *args, **kwargs) -> str:
+    async def run(self, instruction: str, context: str = "", **kwargs) -> str:
         logger.info(f"Executing Review Action with instruction: {instruction}")
-        
         prompt = self.PROMPT_TEMPLATE.format(instruction=instruction, context=context)
-        
-        # [实现] 调用LLM来执行真正的审阅
-        result = await self.llm.aask(prompt, system_msgs=["You are a meticulous editor."])
-        
+        result = await self._aask(prompt, system_msgs=["You are a meticulous editor."])
         logger.info(f"Review result for '{instruction}':\n{result}")
         return result
