@@ -1,4 +1,4 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/actions/create_plan.py (新增文件)
+# /root/metagpt/mgfr/metagpt_doc_writer/actions/create_plan.py (最终版)
 
 import json
 from metagpt.actions import Action
@@ -14,6 +14,7 @@ Based on this goal, create a sequence of tasks. Each task must have:
 - A unique `task_id`.
 - A clear `instruction` describing what to do.
 - An `action_type` chosen from the following list: ["RESEARCH", "WRITE", "REVIEW"].
+- A `use_tools` list, containing any tools needed from this list: ["web_search"]. For most tasks, especially "RESEARCH", this is recommended. For other tasks, it's likely an empty list [].
 - A list of `dependent_task_ids`. The first task has no dependencies.
 
 Respond ONLY with a valid JSON object. Do not add any other text or comments.
@@ -26,19 +27,15 @@ Example:
       "task_id": "task_1",
       "instruction": "Research the key features and common use cases of pytest.",
       "action_type": "RESEARCH",
+      "use_tools": ["web_search"],
       "dependent_task_ids": []
     }},
     {{
       "task_id": "task_2",
       "instruction": "Create a detailed outline for the pytest tutorial based on the research.",
       "action_type": "WRITE",
+      "use_tools": [],
       "dependent_task_ids": ["task_1"]
-    }},
-    {{
-      "task_id": "task_3",
-      "instruction": "Review the outline for clarity and completeness.",
-      "action_type": "REVIEW",
-      "dependent_task_ids": ["task_2"]
     }}
   ]
 }}
@@ -50,11 +47,18 @@ class CreatePlan(Action):
         plan_json_str = await self._aask(prompt)
         
         try:
-            # 简化解析，因为Prompt要求纯JSON
-            data_dict = json.loads(OutputParser.parse_code(plan_json_str))
+            data_dict = OutputParser.parse_code(text=plan_json_str)
+            if isinstance(data_dict, str):
+                data_dict = json.loads(data_dict)
+            
             plan = Plan(**data_dict)
             plan.task_map = {task.task_id: task for task in plan.tasks}
+            
+            logger.info("✅ LLM successfully generated a valid Plan object.")
+            logger.info(plan.model_dump_json(indent=2))
             return plan
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"LLM output failed validation for Plan: {e}", exc_info=True)
+        
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.error(f"❌ LLM output failed validation. Error: {e}", exc_info=True)
+            logger.error(f"Raw LLM output:\n---\n{plan_json_str}\n---")
             raise

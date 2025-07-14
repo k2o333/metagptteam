@@ -1,33 +1,26 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/roles/base_role.py (最终版)
-from typing import Optional, Dict, List
-from pydantic import Field
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/base_role.py (最终修正版)
+
 from metagpt.roles import Role
-from metagpt.utils.project_repo import ProjectRepo
+from metagpt.context import Context
 from metagpt_doc_writer.mcp.manager import MCPManager
-# 注意：Action的定义不应放在这里，而应放在各自的文件中或actions/目录下
+from typing import Dict, List, Optional
+from pydantic import Field
 
 class DocWriterBaseRole(Role):
-    repo: Optional[ProjectRepo] = Field(default=None, exclude=True)
-    llm_activation: Dict[str, bool] = Field(default_factory=dict, exclude=True)
-    mcp_manager: Optional[MCPManager] = Field(default=None, exclude=True)
+    # mcp_bindings 仍然是角色特定的，所以保留
     mcp_bindings: Dict[str, List[str]] = Field(default_factory=dict, exclude=True)
+    # 【核心修正】将 mcp_manager 声明为 Role 的一个可选字段
+    mcp_manager: Optional[MCPManager] = Field(default=None, exclude=True)
 
     def __init__(self, **kwargs):
+        # Pydantic会自动处理kwargs中的'context', 'mcp_manager', 'mcp_bindings'
         super().__init__(**kwargs)
-        self.llm_activation = kwargs.get("llm_activation", {})
-        self.mcp_manager = kwargs.get("mcp_manager")
-        self.mcp_bindings = kwargs.get("mcp_bindings", {})
 
     def can_use_mcp_tool(self, tool_name: str) -> bool:
-        """检查当前角色是否有权限使用某个MCP工具"""
+        # 这里的逻辑不变，它现在直接访问 self.mcp_manager
         if not self.mcp_manager or not self.mcp_bindings:
             return False
-        
-        role_name = self.__class__.__name__
+        role_name = self.name
         allowed_servers = self.mcp_bindings.get(role_name, [])
-        
         client = self.mcp_manager.tool_to_client_map.get(tool_name)
-        if client and client.name in allowed_servers:
-            return True
-        
-        return False
+        return bool(client and client.name in allowed_servers)

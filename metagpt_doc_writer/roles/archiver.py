@@ -1,14 +1,15 @@
-# 文件路径: /root/metagpt/mgfr/metagpt_doc_writer/roles/archiver.py (原生重构版)
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/archiver.py (修正版)
 
 import shutil
 from pathlib import Path
 from datetime import datetime
+import json
 from .base_role import DocWriterBaseRole
-from metagpt.schema import Message
 from metagpt.logs import logger
-from metagpt_doc_writer.schemas.doc_structures import Approval, FinalDelivery, ProjectArchived
+# 【核心修正】移除对 ProjectArchived 的导入
+from metagpt_doc_writer.schemas.doc_structures import FinalDelivery
 
-class Archiver(DocWriterBaseRole): # 【关键修正】: 继承自 Role
+class Archiver(DocWriterBaseRole):
     name: str = "Archiver"
     profile: str = "Archiver"
     goal: str = "Archive the project assets upon completion."
@@ -16,30 +17,38 @@ class Archiver(DocWriterBaseRole): # 【关键修正】: 继承自 Role
     def __init__(self, archive_path: str, **kwargs):
         super().__init__(**kwargs)
         self.archive_path = Path(archive_path)
-        self.set_actions([]) # 非LLM角色，没有可供LLM选择的行动
-        self._watch({Approval, FinalDelivery})
-        self._set_react_mode(react_mode="by_order", max_react_loop=1)
+        self.set_actions([])
+        self._watch({})
 
-    async def _act(self) -> Message:
+    async def archive(self, final_doc_path: str, all_tasks: dict, plan: dict) -> bool:
         """
-        确定地执行归档操作。
+        一个独立的归档方法，由外部调度器在流程结束时调用。
         """
         logger.info(f"{self.name} is archiving the project...")
         
-        # 这个角色只在流程结束时被手动触发，所以我们假设记忆中已有产物
         try:
-            final_delivery_msg = next(m for m in reversed(self.rc.memory.get()) if isinstance(m.instruct_content, FinalDelivery))
-        except StopIteration:
-            logger.warning("No FinalDelivery message found in memory, cannot archive.")
-            return Message(content="No final delivery found to archive.", role=self.profile)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            project_archive_path = self.archive_path / f"project_{timestamp}"
+            project_archive_path.mkdir(parents=True, exist_ok=True)
+            
+            # 1. 归档最终文档
+            if final_doc_path and Path(final_doc_path).exists():
+                shutil.copy(final_doc_path, project_archive_path)
+                logger.info(f"Archived final document: {final_doc_path}")
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        project_archive_path = self.archive_path / f"project_{timestamp}"
-        project_archive_path.mkdir(parents=True, exist_ok=True)
-        
-        # ... (归档逻辑保持不变)
-        
-        return Message(
-            content=f"Project archived to {project_archive_path}",
-            instruct_content=ProjectArchived(archive_path=str(project_archive_path))
-        )
+            # 2. 归档计划和任务结果
+            serializable_tasks = {tid: task.model_dump() for tid, task in all_tasks.items()}
+            archive_data = {
+                "plan": plan.model_dump(),
+                "completed_tasks": serializable_tasks
+            }
+            with open(project_archive_path / "plan_and_results.json", "w", encoding='utf-8') as f:
+                json.dump(archive_data, f, indent=4)
+            logger.info("Archived plan and task results.")
+
+            logger.success(f"Project successfully archived to: {project_archive_path}")
+            # 【核心修正】返回一个简单的布尔值表示成功
+            return True
+        except Exception as e:
+            logger.error(f"Archiving failed: {e}", exc_info=True)
+            return False
