@@ -1,26 +1,28 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/roles/technical_writer.py (最终完整配置驱动版)
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/technical_writer.py (修正并简化)
 
 from .base_role import DocWriterBaseRole
 from metagpt.schema import Message
 from metagpt.logs import logger
 from typing import Optional
 
+# 导入真正的 Action 和 Schema
 from metagpt_doc_writer.actions.write_section import WriteSection
-from metagpt_doc_writer.schemas.doc_structures import ApprovedTask, DraftSection
-from metagpt_doc_writer.mcp.manager import MCPManager
-from .chief_pm import ApproveTask
+from metagpt_doc_writer.schemas.doc_structures import ApprovedTask
+
+# 关键修正：不再从 chief_pm 导入，因为 ApproveTask 已经不在那里了
+# from .chief_pm import ApproveTask  <-- 删除这一行
 
 class TechnicalWriter(DocWriterBaseRole):
     name: str = "TechnicalWriter"
     profile: str = "Technical Writer"
     goal: str = "Write high-quality, clear, and accurate technical documentation sections."
 
-    def __init__(self, mcp_manager: Optional[MCPManager] = None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # 将 use_llm 开关传递给 Action
-        use_llm = self.llm_activation.get(WriteSection.__name__, False)
-        self.set_actions([WriteSection(mcp_manager=mcp_manager, use_llm=use_llm)])
-        self._watch({f"{ApproveTask.__module__}.{ApproveTask.__name__}"})
+        self.set_actions([WriteSection()])
+        # 在我们的新架构中，这个角色其实不被直接使用。
+        # 为了让文件能被导入，我们让它监听一个它之前依赖的类型。
+        self._watch({ApprovedTask})
         self._set_react_mode(react_mode="by_order", max_react_loop=1)
 
     async def _act(self) -> Message:

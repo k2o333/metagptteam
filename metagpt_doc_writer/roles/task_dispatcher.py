@@ -1,11 +1,11 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/roles/task_dispatcher.py (已修改)
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/task_dispatcher.py (最终简化版)
 
 from .base_role import DocWriterBaseRole
 from metagpt.actions import Action
 from metagpt.schema import Message
 from metagpt.logs import logger
 from metagpt_doc_writer.schemas.doc_structures import ModuleOutline, InitialTask
-from .group_pm import CreateModuleOutline
+import asyncio
 
 class GenerateInitialTask(Action):
     name: str = "GenerateInitialTask"
@@ -16,43 +16,40 @@ class GenerateInitialTask(Action):
 class TaskDispatcher(DocWriterBaseRole):
     name: str = "TaskDispatcher"
     profile: str = "Task Dispatcher"
-    goal: str = "Generate initial tasks from module outlines"
+    goal: str = "Generate initial tasks from a module outline."
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([GenerateInitialTask])
-        self._watch({f"{CreateModuleOutline.__module__}.{CreateModuleOutline.__name__}"})
+        self.set_actions([GenerateInitialTask()])
+        # 【核心修改】它现在只监听单个 ModuleOutline
+        self._watch({ModuleOutline})
+        self._set_react_mode(react_mode="by_order", max_react_loop=1)
 
     async def _act(self) -> Message:
-        logger.info(f"{self.name}: Ready to dispatch tasks.")
+        if not self.rc.todo: return None
+        action = self.rc.todo
+        logger.info(f"{self._setting}: ready to {action.name}")
         
-        # FIX: 不再只看 history[-1]，而是处理所有新消息
-        # 遍历 self.rc.news 里的所有 ModuleOutline 消息
-        module_outline_msgs = [m for m in self.rc.news if isinstance(m.instruct_content, ModuleOutline)]
-        if not module_outline_msgs:
-            logger.warning(f"{self.name}: No new ModuleOutline messages to process.")
+        trigger_msg = self.rc.history[-1]
+        module_outline = trigger_msg.instruct_content
+
+        if not isinstance(module_outline, ModuleOutline):
             return None
 
-        action = self.rc.todo
-        if not action:
-            logger.warning(f"{self.name}: No action to perform (todo is None).")
+        # 一次性为该大纲的所有章节创建初始任务
+        tasks = [action.run(chapter_title=chapter_title) for chapter_title in module_outline.chapters]
+        initial_tasks = await asyncio.gather(*tasks)
+
+        if not initial_tasks:
             return None
         
-        # 对每一个大纲都进行处理
-        for module_outline_msg in module_outline_msgs:
-            module_outline = module_outline_msg.instruct_content
-            logger.info(f"Dispatching tasks for module: '{module_outline.module_title}'")
-            
-            for chapter_title in module_outline.chapters:
-                initial_task: InitialTask = await action.run(chapter_title=chapter_title)
-                
-                msg_to_publish = Message(
-                    content=f"Initial task for chapter '{initial_task.chapter_title}' created.",
-                    instruct_content=initial_task,
-                    role=self.profile,
-                    cause_by=type(action)
-                )
-                self.rc.env.publish_message(msg_to_publish)
-        
-        # 所有工作都通过 publish_message 完成，返回 None
-        return None
+        logger.info(f"TaskDispatcher created {len(initial_tasks)} initial tasks. Sending to Scheduler.")
+
+        # 【核心修改】将包含列表的消息发送给 Scheduler
+        return Message(
+            content=f"Dispatching {len(initial_tasks)} initial tasks for refinement.",
+            instruct_content=initial_tasks,
+            role=self.profile,
+            cause_by=type(action).__name__,
+            send_to="Scheduler"
+        )

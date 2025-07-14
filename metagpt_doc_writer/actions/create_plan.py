@@ -1,4 +1,4 @@
-# 路径: /root/metagpt/mgfr/metagpt_doc_writer/actions/create_plan.py (修改后全文)
+# /root/metagpt/mgfr/metagpt_doc_writer/actions/create_plan.py (新增文件)
 
 import json
 from metagpt.actions import Action
@@ -6,7 +6,6 @@ from metagpt.utils.common import OutputParser
 from metagpt_doc_writer.schemas.doc_structures import Plan
 from metagpt.logs import logger
 
-# [修改] 更新Prompt以使用action_type
 CREATE_PLAN_PROMPT = """
 You are an expert project manager. Your task is to break down the user's high-level goal into a detailed, step-by-step plan.
 The user wants: "{goal}"
@@ -51,20 +50,11 @@ class CreatePlan(Action):
         plan_json_str = await self._aask(prompt)
         
         try:
-            parsed_str = OutputParser.parse_code(plan_json_str)
-            if isinstance(parsed_str, str):
-                data_dict = json.loads(parsed_str)
-            else:
-                data_dict = parsed_str
-            
+            # 简化解析，因为Prompt要求纯JSON
+            data_dict = json.loads(OutputParser.parse_code(plan_json_str))
             plan = Plan(**data_dict)
             plan.task_map = {task.task_id: task for task in plan.tasks}
-            
-            logger.info("✅ LLM successfully generated a valid Plan object using action_type.")
-            logger.info(plan.model_dump_json(indent=2))
             return plan
-        
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            logger.error(f"❌ LLM output failed validation. Error: {e}", exc_info=True)
-            logger.error(f"Raw LLM output:\n---\n{plan_json_str}\n---")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"LLM output failed validation for Plan: {e}", exc_info=True)
             raise

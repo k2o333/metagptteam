@@ -1,29 +1,18 @@
-# 路径: /root/metagpt/mgfr/metagpt_doc_writer/actions/research.py (最终实现版)
+# /root/metagpt/mgfr/metagpt_doc_writer/actions/research.py
 
 from metagpt.actions import Action
 from metagpt.logs import logger
 from typing import ClassVar
 
 class Research(Action):
-    PROMPT_TEMPLATE: ClassVar[str] = """
-    Please research the following topic based on the user's instruction.
-    Your goal is to provide a concise and informative summary that will be used as context for later tasks.
+    # Prompt可以先留空
+    PROMPT_TEMPLATE: ClassVar[str] = "Placeholder for research prompt: {instruction}"
     
-    Instruction: "{instruction}"
-    
-    Provide a detailed summary of your findings.
-    """
-    
+    # 关键：name需要和Task中的action_type匹配
     def __init__(self, name="RESEARCH", **kwargs):
         super().__init__(name=name, **kwargs)
 
-    async def run(self, instruction: str, *args, **kwargs) -> str:
-        logger.info(f"Executing Research Action with instruction: {instruction}")
-        
-        prompt = self.PROMPT_TEMPLATE.format(instruction=instruction)
-        
-        # [实现] 调用LLM来执行真正的研究
-        result = await self.llm.aask(prompt, system_msgs=["You are a professional researcher."])
-        
-        logger.info(f"Research result for '{instruction}':\n{result[:200]}...")
-        return result
+    async def run(self, instruction: str, context: str = "", *args, **kwargs) -> str:
+        logger.info(f"Executing Mock Research for: {instruction}")
+        # 返回一个模拟结果，表明它被调用了
+        return f"Mocked research result for instruction: '{instruction}'"

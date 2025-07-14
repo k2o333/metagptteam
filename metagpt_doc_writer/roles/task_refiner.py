@@ -1,12 +1,12 @@
 # /root/metagpt/mgfr/metagpt_doc_writer/roles/task_refiner.py (已修改)
 
+import asyncio
 from .base_role import DocWriterBaseRole
 from metagpt.actions import Action
 from metagpt.schema import Message
 from metagpt.logs import logger
 from metagpt.utils.common import OutputParser
 from metagpt_doc_writer.schemas.doc_structures import InitialTask, RefinedTask
-from .task_dispatcher import GenerateInitialTask
 
 class RefineTask(Action):
     name: str = "RefineTask"
@@ -46,7 +46,8 @@ class TaskRefiner(DocWriterBaseRole):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_actions([RefineTask()])
-        self._watch({f"{GenerateInitialTask.__module__}.{GenerateInitialTask.__name__}"})
+        # FIX: 监听 InitialTask 数据类型
+        self._watch({InitialTask})
         self._set_react_mode(react_mode="by_order", max_react_loop=1)
 
     async def _act(self) -> Message:
@@ -54,17 +55,32 @@ class TaskRefiner(DocWriterBaseRole):
         action = self.rc.todo
         logger.info(f"{self._setting}: ready to {action.name}")
         
-        initial_task_msg = self.rc.history[-1]
-        initial_task = initial_task_msg.instruct_content
-
-        if not isinstance(initial_task, InitialTask):
-            logger.warning(f"Expected InitialTask, but got {type(initial_task)}. Skipping.")
-            return None
+        trigger_msg = self.rc.history[-1]
+        content = trigger_msg.instruct_content
+        initial_tasks = content if isinstance(content, list) else [content]
 
         use_llm = self.llm_activation.get(action.name, False)
-        refined_task = await action.run(initial_task, use_llm=use_llm)
         
-        # --- 添加日志点 A ---
-        logger.success(f"TaskRefiner: Successfully created RefinedTask for '{refined_task.chapter_title}'. Preparing to publish.")
+        # --- 【核心修正】: 并发处理所有 InitialTask ---
+        tasks_to_run = [action.run(task, use_llm=use_llm) for task in initial_tasks if isinstance(task, InitialTask)]
         
-        return Message(content=refined_task.model_dump_json(), instruct_content=refined_task, cause_by=type(action))
+        if not tasks_to_run:
+            logger.warning("TaskRefiner: No valid InitialTask objects to process.")
+            return None
+
+        refined_tasks = await asyncio.gather(*tasks_to_run)
+        
+        if not refined_tasks:
+            logger.warning("TaskRefiner: No tasks were refined.")
+            return None
+
+        logger.info(f"TaskRefiner has refined {len(refined_tasks)} tasks.")
+
+        # 将所有精炼后的任务列表作为 instruct_content 返回
+        # ChiefPM 会接收到这个列表，并逐一审批
+        return Message(
+            content=f"Refined {len(refined_tasks)} tasks.",
+            instruct_content=refined_tasks,
+            role=self.profile,
+            cause_by=type(action).__name__
+        )
