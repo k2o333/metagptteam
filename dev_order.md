@@ -1,238 +1,439 @@
 
 
-### **多智能体文档撰写系统：终极演进路线 (SOP - Final Integrated Version)**
+### **最终开发实施路线图：V4.5 "Artisan" (终极版)**
 
-**核心指导原则 (Guiding Principles):**
-
-*   **愿景驱动，架构先行 (Vision-Driven, Architecture-First):** 始终以`prd35.md`的最终愿景为北极星，确保每一步技术选型和实现都服务于构建一个**鲁棒、智能、可扩展**的系统。
-*   **对话即调用 (Dialogue as Invocation):** 将Agent与工具的交互，从“指令-执行”模式，全面升级为“对话-响应”模式。工具不再是被动调用的函数，而是参与对话的“虚拟专家”，统一系统内的交互范式。
-*   **风险前置 (De-risk First):** 优先通过**技术探针 (Spike)** 验证所有新引入的、不确定的技术点，为后续大规模开发扫清障碍。
-*   **主线驱动 (Main-Thread Driven):** 聚焦于打通和强化“**规划 -> 增强 -> 执行 -> 组装 -> 修订 -> 批准**”的核心价值流，确保主干流程的健壮性。
-*   **增量增强 (Incremental Enhancement):** 在主干稳定后，以“插件化”的思路逐步为Agent注入高级智能，避免主流程的过度复杂化。
-*   **小步快跑，明确验收 (Small, Verifiable Steps):** 每一步都有明确、可独立验证的交付成果和可量化的验收标准。
+**总览**: 我们将严格按照官方建议，利用框架的内置能力，分四个阶段完成系统的全面升级。
 
 ---
 
-### **阶段零：地基重构与核心能力验证 (Foundation Refactoring & Core Capability Verification)**
+### **Milestone 1 (不变): 实现统一的反思与优化循环**
 
-**目标:** 建立一个灵活、健壮、可配置且风险可控的底层架构，为所有高级功能的引入奠定坚实基础。
+**目标**: 为系统注入自我优化能力。
 
-*   **第1步: 实现声明式角色LLM绑定**
-    *   **理念:** **配置与代码彻底解耦。** 通过YAML文件声明式地管理角色与LLM的绑定，实现最大的灵活性和易维护性。
-    *   **任务:**
-        1.  **重构`configs/config2.yaml`格式:**
-            ```yaml
-            llms:
-              - key: "strong_llm"
-                api_type: "open_llm"
-                model: "gpt-4o"
-                # ...
-              - key: "fast_llm"
-                api_type: "open_llm"
-                model: "gpt-4o-mini"
-                # ...
-            role_llm_bindings:
-              "ChiefPM": "strong_llm"
-              "TechnicalWriter": "fast_llm"
-              # ... 其他角色绑定
-            llm: # 默认LLM，用于回退
-              key: "default"
-              model: "gpt-4o-mini"
-              # ...
-            ```
-        2.  **重构`Team`初始化逻辑:** 在`run.py`或`Team`类中，读取`role_llm_bindings`配置，在雇佣角色时，自动从LLM连接池中查找并注入对应的LLM实例。
-    *   **验收标准:**
-        *   **标准1:** `run.py`中移除所有硬编码的`Role(llm=...)`。
-        *   **标准2:** 在`config2.yaml`中修改一个角色的LLM绑定，重新运行，日志能反映出变化，**无需修改任何Python代码**。
+**要实现什么**:
+1.  **创建`actions/reflect.py`及`ReflectAndOptimize` Action**。
+2.  **（采纳官方建议）**在实现时，优先研究`metagpt.actions.write_review.py`，尝试使用`ActionNode`来构建一个结构化的、而不是基于简单Prompt模板的反思流程。如果`ActionNode`过于复杂，再降级为Prompt模板方案。
+3.  **增强`CreatePlan` Action的Prompt**，使其能在`Plan`中插入`action_type: "REFLECT"`的任务。
+4.  **修改`Executor`**以识别和处理`REFLECT`任务。
 
-*   **第2步: 实现通用Token计数器 (Universal Token Counter)**
-    *   **理念:** 成本控制和上下文管理是系统的生命线，必须依赖于一个对各类模型都相对准确的Token计数器。
-    *   **任务:**
-        1.  创建`UniversalTokenizer`类，内部维护`tiktoken`编码器与模型族的映射关系。
-        2.  对未知模型，**默认回退到基于字符数的估算方法**（如`len(text) / 3`），并打印`warning`日志，确保系统鲁棒性。
-        3.  在`metagpt.provider.base_llm.BaseLLM`中集成此`UniversalTokenizer`。
-    *   **验收标准:**
-        *   **标准1:** 单元测试覆盖已知模型（如GPT-4）、近似模型（如Llama3）和未知模型。
-        *   **标准2:** 断言三种情况都能返回一个整数，且未知模型会触发警告日志。
+**需要注意的`metagpt`框架内容**:
+*   **`metagpt.actions.ActionNode`**: 这是实现结构化、多步骤`Action`的核心工具。它能将一个复杂的任务（如“反思”）分解为多个内部小步骤（如“评估完整性”、“评估清晰度”、“生成建议”、“综合修订”），使`Action`的逻辑更清晰、结果更可控。
 
-*   **第3步: 【技术探针】验证核心高风险技术点**
-    *   **理念:** 用最小化的脚本，快速验证所有不确定性最高的技术方案，为后续开发扫清障碍。
-    *   **任务:** 创建独立的`scripts/spike_test_*.py`脚本。
-        1.  **MCP基础探针 (`spike_test_mcp.py`):** 验证`llm.acompletion`能正确处理包含多角色（如`critic`）的`messages`列表，证明LLM能理解多方对话上下文。
-        2.  **文档改编探针 (`spike_test_doc_adaptation.py`):** 验证`Planner`可以消费一个完整的Markdown文档作为输入，并生成与之结构相关的`ProjectPlan`。
-        3.  **长上下文处理探针 (`spike_test_context_optimizer.py`):** 验证使用内存RAG（`metagGPT.rag`）能够从超长文档中，根据查询准确检索出相关的文本片段，解决上下文丢失问题。
-        4.  **MCP工具调用探针 (`spike_test_mcp_tool_call.py`):** **(关键探针)** 验证将工具模拟为对话参与者（`role: "assistant", name: "ToolName_Tool"`）的可行性。证明LLM能在一个对话流中，正确理解并利用“工具角色”提供的信息来完成任务。
-    *   **验收标准:** 每个探针脚本都能成功运行，并且其输出明确证明了对应技术路线的可行性（如MCP探针的LLM回复体现了多角色上下文理解，RAG探针检索出了文档末尾内容等）。
+**如何验收**:
+1.  `Plan`中包含`action_type: "REFLECT"`的任务。
+2.  日志显示`Executor`成功调用了`ReflectAndOptimize` Action。
+3.  `REFLECT`任务的`result`是基于其依赖任务结果优化后的新版本。
 
 ---
 
-### **阶段一：实现鲁棒的“规划-执行-修订”核心循环**
+### **Milestone 2 (重大重构): 实现基于`metagpt`原生能力的分层LLM资源调度**
 
-**目标:** 将探针验证过的技术产品化，构建一个包含健壮规划、执行和修订功能的端到端主流程。
 
-*   **第4步: 产品化文档改编流程入口**
-    *   **任务:** 修改`scripts/run.py`，增加`--adapt-from-file <path>`参数，读取文件内容并传递给`Planner`。
-    *   **验收标准:** 运行带此参数的命令，日志显示`Planner`生成的`ProjectPlan`与输入文档的章节结构高度相关。
+#### **第一步：重构`config2.yaml`以符合官方标准**
 
-*   **第5步: 实现`GroupPM`与探索式RAG规划增强**
-    *   **理念:** 规划不应凭空想象，而应基于已有的知识库，提高大纲的深度和准确性。
-    *   **任务:**
-        1.  创建`roles/group_pm.py`和`actions/create_module_outline.py`。
-        2.  `CreateModuleOutline`的`run`方法接收模块标题，先用标题`aquery()` RAG知识库，然后将检索结果和标题一同传给LLM，生成更详尽的大纲。
-        3.  在`run.py`中，将`GroupPM`的执行环节插入到`Planner`之后、`TechnicalWriter`之前。
-    *   **验收标准:** `TechnicalWriter`接收到的任务指令中，包含了由`GroupPM`生成的、带有RAG检索信息的`rag_hint`字段。
+这是所有修改的基础。
 
-*   **第6步: 实现带哈希锚点的`DocAssembler`**
-    *   **理念:** 锚点必须是**稳定且可调试**的。基于内容的哈希是实现可靠修订指令的基础。
-    *   **任务:** 修改`DocAssembler`，使用`hashlib.sha1(paragraph_text.encode()).hexdigest()[:12]`为每个段落生成确定性的锚点ID。
-    *   **验收标准:** 手动检查生成的`FullDraft`文档，确认其中包含形如`<!-- ANCHOR: a1b2c3d4e5f6 -->`的、基于内容哈希的锚点。
+```yaml
+# /root/.metagpt/config2.yaml (最终官方标准版)
 
-*   **第7步: 实现完整的、基于哈希锚点的修订循环**
-    *   **理念:** 将“审阅”、“指令转换”和“执行”彻底解耦，并通过“验证-修复循环”确保修订指令的100%可靠性。
-    *   **任务:**
-        1.  **`ChiefPM.ReviewAndCommand`**: 实现**熔断机制**，防止无限修订循环。
-        2.  **`ChangeSetGenerator`**: **(核心)** 实现包含**语法验证（`try-except json.loads`）和逻辑验证（锚点ID存在性检查）**的修复循环。若验证失败，则调用LLM进行自我修复。
-        3.  **`DocModifier`**: 确认其能正确处理基于哈希锚点的`REPLACE`, `INSERT`, `DELETE`操作。
-    *   **验收标准:**
-        *   **标准1 (成功路径):** 模拟`ChiefPM`给出修改意见，断言最终文档被正确修改。
-        *   **标准2 (修复路径):** 在测试中，mock LLM返回**格式错误**的JSON或**无效的锚点**，断言`ChangeSetGenerator`依然能成功输出，并且触发了修复流程。
-        *   **标准3 (熔断路径):** 在测试中，让`ChiefPM`连续多次返回修改意见，断言达到阈值后它会强制批准，并打印警告日志。
+# 全局默认LLM，当Action没有指定llm_name_or_type，
+# 且其所属Role也没有指定默认llm_key时使用。
+llm:
+  api_type: "openai"
+  model: "llama3-8b-instruct"
+  base_url: "http://192.168.88.7:4000/v1"
+  api_key: "sk-1234"
 
----
+# 【核心修正】使用'models'块来定义所有可用的具名LLM配置
+models:
+  deepseek_v3_base:
+    api_type: "openai"
+    model: "deepseek-v3"
+    base_url: "http://192.168.88.7:4000/v1"
+    api_key: "sk-1234"
+  deepseek_r1_cot:
+    api_type: "openai"
+    model: "deepseek-r1"
+    base_url: "http://192.168.88.7:4000/v1"
+    api_key: "sk-1234"
+  gpt_4o_strong:
+    api_type: "openai"
+    model: "gpt-4o"
+    api_key: "sk-your_real_key"
 
-### **阶段二：Agent智能与能力扩展 (Agent Intelligence & Capability Expansion)**
+# 【核心修正】使用'roles'块为角色绑定默认的LLM key
+roles:
+  - role: "ChiefPM" # 与Role类的name属性匹配
+    llm_key: "gpt_4o_strong"
+  - role: "Executor"
+    llm_key: "deepseek_r1_cot" # Executor默认使用这个
 
-**目标:** 在核心流程稳定后，统一采用MCP范式，为Agent注入高级智能，使其从“执行者”进化为“思考者”。
-
-*   **第8步: 实现`QAAgent`与自动化质检**
-    *   **任务:** 创建`QAAgent`和`AutomatedCheck` Action，对`FullDraft`进行多维度检查（术语一致性、引用格式等），生成结构化的`QAReport`。
-    *   **验收标准:** `ChiefPM`的日志显示，它在审阅决策前**接收并处理**了`QAReport`的内容。
-
-*   **第9步: 实现`TechnicalWriter`的自我反思**
-    *   **任务:** 在`WriteSection` Action的`run`方法中，生成初稿后，立即调用一个内部的`_reflect`方法，使用特定Prompt让LLM对初稿打分并给出修订版。
-    *   **验收标准:** 单元测试中，断言Action的最终输出是经过反思的**修订稿**，而不是初稿。
-
-好的，这是一个非常深刻且重要的架构需求。这意味着我们不仅仅是让`TechnicalWriter`一个角色能用工具，而是要建立一个**通用的、可被任何Agent复用的MCP能力层**。同时，我们还要创建一个**专门的`ToolAgent`**，它不做其他事，只负责执行工具调用，这非常符合单一职责原则。
-
-我将根据这个新要求，重写 `dev_order.md` 的第10步，并提出一个新的第10.5步来体现这个架构演进。
-
----
-
-### **`dev_order.md` - 阶段二，第10步 & 新增第10.5步 (MCP架构演进版)**
-
-这部分内容将替换原有的第10步，并增加一个新步骤。
-
----
-
-### **阶段二：第10步: 【架构重塑】构建通用的MCP能力层**
-
-**目标**: 将MCP客户端的交互逻辑从任何特定`Action`中解耦出来，构建一个**全局的、可被任何Agent按需访问的MCP能力层**。这标志着系统从“特定角色使用工具”演进为“任何角色都可以通过标准协议与外部世界交互”。
-
-**理念**:
-*   **能力即服务 (Capability as a Service)**: MCP工具调用能力不应被硬编码在某个`Action`中，而应作为一种类似“微服务”的基础设施存在，供团队中所有Agent按需调用。
-*   **配置驱动 (Configuration-Driven)**: 一个Agent是否能使用MCP工具，以及能使用哪些工具，应该由**配置**决定，而不是由其代码实现决定，从而实现最大的灵活性。
-*   **标准交互范式 (Standard Interaction Paradigm)**: 任何Agent想调用外部工具，都遵循统一的模式：生成一个特殊的`ToolCall`消息，由专门的Agent来处理。
-
-**任务**:
-
-1.  **创建 MCP Client 基础设施 (`metagpt_doc_writer/mcp/`)**:
-    *   **`transport.py` (StdioTransport)** 和 **`client.py` (MCPClient)** 的实现保持不变（基于我们已验证的V2版本）。它们是稳定可靠的底层通信模块。
-
-2.  **创建 `MCPManager` 作为全局服务**:
-    *   **`utils/mcp_manager.py`**: `MCPManager`的职责不变，它仍然是所有`MCPClient`的管理者和工具请求的中央路由器。
-    *   **实例化**: `MCPManager` 将在主流程（如`run.py`）的顶层被**实例化一次**，并作为一个**单例服务**存在。
-
-3.  **定义标准的工具调用消息 (`schemas/doc_structures.py`)**:
-    *   **新增`ToolCall`和`ToolOutput` Schema**:
-        *   `ToolCall(tool_name: str, args: dict)`: 当一个LLM-Agent想要调用工具时，它不再直接执行代码，而是生成一个包含此`ToolCall`对象的`Message`。
-        *   `ToolOutput(tool_name: str, output: str, is_error: bool)`: 这是工具执行后返回的结果，同样封装在`Message`中。
-
-**验收标准**:
-
-*   **标准1 (基础设施)**: `MCPClient`, `StdioTransport`, `MCPManager` 的单元测试通过，能成功连接到外部MCP Server并列出工具。
-*   **标准2 (新Schema)**: `ToolCall` 和 `ToolOutput` 的Pydantic模型定义完成。
+# 【核心设计】我们自己的自定义配置块，用于定义高级资源池
+# 官方建议，这种自定义配置可以放在这里，由我们的应用代码自己加载和解析
+role_action_llm_pools:
+  "ChiefPM-CreatePlan":
+    - "gpt_4o_strong"
+    - "deepseek_r1_cot" # 备用
+  "Executor-Research":
+    - "deepseek_v3_base"
+    - "deepseek_r1_cot" # 并行/备用
+  "Executor-REFLECT": # 假设我们有一个REFLECT Action
+    - "gpt_4o_strong"
+    - "deepseek_r1_cot"
+```
 
 ---
 
-### **阶段二：第10.5步: 实现双模态工具调用与`ToolAgent`**
+#### **第二步：重构`run.py`，简化资源管理**
 
-**目标**: 基于第10步构建的通用MCP能力层，实现两种工具调用模式：**1) 任何Agent的内部直接调用** 和 **2) 通过专门的`ToolAgent`进行委托调用**。
+`run.py`现在不再需要创建LLM池，只需要加载配置，创建`Context`即可。
 
-**任务**:
+```python
+# /root/metagpt/mgfr/scripts/run.py (部分修改)
 
-1.  **模式一：任何Agent的内部直接调用**
-    *   **重构`BaseDocWriterRole`**:
-        *   为其增加一个 `mcp_manager: Optional[MCPManager] = None` 属性。
-        *   增加一个 `async def call_tool(self, tool_name: str, args: dict)` 的辅助方法，该方法内部直接调用`self.mcp_manager.call_tool()`。
-    *   **重构`WriteSection` Action**:
-        *   `run`方法现在接收`MCPManager`作为参数。
-        *   其内部的MCP状态机逻辑不变，但当需要调用工具时，它直接调用`self.owner.call_tool()`（`self.owner`指向拥有该Action的Role实例）。
-    *   **`TechnicalWriter`的配置**: 在初始化`TechnicalWriter`时，将全局的`MCPManager`实例注入给它。
-        ```python
-        # In run.py
-        mcp_manager = MCPManager(...)
-        await mcp_manager.start_all_servers()
+# ...
+
+async def main(idea: str, ...):
+    # ... (配置加载)
+    with open(config_yaml_path, 'r', encoding='utf-8') as f:
+        full_config = yaml.safe_load(f)
+
+    # --- 2. 创建Context ---
+    # Config会自动加载'llm', 'models', 'roles'等标准块
+    config = Config.from_yaml_file(config_yaml_path)
+    ctx = Context(config=config)
+
+    # --- 3. 【核心修改】将我们的自定义配置放入Context的kwargs中 ---
+    # 这是官方推荐的、用于存储自定义数据的安全方式
+    ctx.kwargs.role_action_llm_pools = full_config.get("role_action_llm_pools", {})
+    
+    # ... (MCP管理器初始化) ...
+    # 之后将ctx传递给所有角色
+    chief_pm = ChiefPM(context=ctx)
+    executor = Executor(context=ctx)
+    # ...
+```
+
+---
+
+#### **第三步：重构`Executor`和`Action`，实现最终的调度逻辑**
+
+这是本次修改的核心，完全拥抱`metagpt`的原生机制。
+
+##### **`/root/metagpt/mgfr/metagpt_doc_writer/roles/executor.py` (最终版)**
+
+`Executor`的职责是：
+1.  从`Context`中读取资源池配置。
+2.  根据`Task`和资源池配置，决定要使用哪些LLM `key`。
+3.  **动态实例化**`Action`，并将`llm_name_or_type`传递给它。
+4.  实现并行和故障回退逻辑。
+
+```python
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/executor.py
+
+from .base_role import DocWriterBaseRole
+from metagpt.logs import logger
+from metagpt_doc_writer.schemas.doc_structures import Task
+from metagpt_doc_writer.actions.research import Research
+from metagpt_doc_writer.actions.write import Write
+from metagpt_doc_writer.actions.review import Review
+from typing import Dict, List, Type
+import asyncio
+
+class Executor(DocWriterBaseRole):
+    name: str = "Executor"
+    profile: str = "Task Executor"
+    goal: str = "Execute tasks using dynamically scheduled resources."
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # 不再在init时创建Action实例，而是存储Action的类
+        self.action_classes: Dict[str, Type[Action]] = {
+            "RESEARCH": Research,
+            "WRITE": Write,
+            "REVIEW": Review,
+            # "REFLECT": ReflectAndOptimize, # 未来可以添加
+        }
+
+    async def run(self, task: Task, completed_tasks: Dict[str, Task]) -> Task:
+        logger.info(f"Executor received task '{task.task_id}' with type '{task.action_type}'.")
         
-        team.hire([
-            TechnicalWriter(mcp_manager=mcp_manager),
-            # ... other roles
-        ])
-        ```
+        action_class = self.action_classes.get(task.action_type)
+        if not action_class:
+            task.result = f"Error: No action class found for type '{task.action_type}'"
+            return task
 
-2.  **模式二：实现专门的`ToolAgent`**
-    *   **创建`metagpt_doc_writer/roles/tool_agent.py`**:
-        *   这是一个**非LLM的工具人角色**。
-        *   它在初始化时接收全局的 `MCPManager` 实例。
-        *   它 `_watch({ToolCall})`，专门监听`ToolCall`消息。
-        *   其 `_act` 方法的逻辑是：
-            1.  从收到的`ToolCall`消息中解析出`tool_name`和`args`。
-            2.  调用`self.mcp_manager.call_tool(tool_name, args)`。
-            3.  将返回结果封装成一个`ToolOutput`消息并发布。
+        # 1. 从Context获取资源池配置
+        role_action_pools = self.context.kwargs.get("role_action_llm_pools", {})
+        action_key = f"{self.__class__.__name__}-{action_class.__name__}"
+        
+        # 2. 决定本次任务要使用的LLM key列表
+        # 任务指定 > Role-Action池 > Role默认 > 全局默认
+        default_llm_key = self.config.roles.get(self.name, {}).get("llm_key")
+        llm_keys_to_use = role_action_pools.get(action_key, [default_llm_key] if default_llm_key else [])
 
-3.  **整合与测试**:
-    *   **`test_direct_tool_call.py`**: 创建一个测试，验证`TechnicalWriter`能够成功地、直接地调用`MCPManager`执行工具。
-    *   **`test_delegated_tool_call.py`**: 创建一个测试，模拟一个Agent（可以是任何Agent）发布一个`ToolCall`消息，然后验证`ToolAgent`能够接收到该消息，执行工具，并发布正确的`ToolOutput`消息。
+        if not llm_keys_to_use:
+            logger.warning(f"No specific LLM pool found for {action_key}, using global default LLM.")
+            # 如果没有找到任何配置，Action初始化时不传llm_name_or_type，会使用全局默认llm
+        
+        # 3. 准备上下文 (与之前相同)
+        context_str = "..."
 
-**验收标准**:
+        # 4. 实现并行与故障回退的执行逻辑
+        # 假设我们将instruction分解为多个子任务来并行
+        sub_instructions = [task.instruction] # 简化：先只处理一个子任务
 
-*   **标准1 (直接调用)**: `test_direct_tool_call.py`通过。日志显示`TechnicalWriter`的`_act`方法内部成功获取了工具返回的结果。
-*   **标准2 (委托调用)**: `test_delegated_tool_call.py`通过。日志显示`ToolAgent`正确地响应了`ToolCall`消息，并发布了`ToolOutput`消息。
-*   **标准3 (灵活性)**: 两种模式可以共存。系统现在既支持有工具使用能力的“专家Agent”，也支持将工具调用作为一项公共服务委托给“专员Agent”。
+        async def execute_subtask(sub_instr, llm_keys):
+            for i, key in enumerate(llm_keys):
+                try:
+                    logger.info(f"Attempting subtask with LLM: '{key}'")
+                    action_instance = action_class(llm_name_or_type=key, context=self.context)
+                    
+                    # 准备kwargs
+                    action_kwargs = {"instruction": sub_instr, "context": context_str, ...}
+                    
+                    return await action_instance.run(**action_kwargs)
+                except Exception as e:
+                    logger.warning(f"Subtask failed with LLM '{key}'. Error: {e}. Trying next fallback LLM.")
+                    if i == len(llm_keys) - 1: # 如果是最后一个也失败了
+                        logger.error(f"All fallback LLMs failed for subtask. Aborting.")
+                        return f"Error: All LLMs failed. Last error: {e}"
+        
+        # 并发执行所有子任务 (当前只有一个)
+        tasks_to_gather = [execute_subtask(si, llm_keys_to_use) for si in sub_instructions]
+        results = await asyncio.gather(*tasks_to_gather)
+        
+        task.result = "\n\n".join(results)
+        return task
+```
+
+##### `/root/metagpt/mgfr/metagpt_doc_writer/actions/research.py` (简化版)
+`Action`现在变得极其纯粹，它不再关心资源和权限，只负责执行。
+
+```python
+# /root/metagpt/mgfr/metagpt_doc_writer/actions/research.py
+
+from metagpt.actions import Action
+from metagpt.logs import logger
+from typing import ClassVar
+from metagpt.tools.search_engine import SearchEngine
+
+class Research(Action):
+    # ... (PROMPT_TEMPLATE不变) ...
+    
+    # run方法现在非常干净
+    async def run(self, instruction: str, context: str = "", **kwargs) -> str:
+        logger.info(f"Executing Research Action for: '{instruction}'")
+        
+        # Action不再关心是否启用搜索，它被调用时就意味着应该搜索
+        try:
+            search_engine = SearchEngine()
+            search_result = await search_engine.run(instruction)
+            # ...
+        except Exception as e:
+            # ...
+        
+        # ... 组合prompt并调用LLM ...
+        # 注意：这里的 self.llm 已经被框架根据 llm_name_or_type 动态设置好了
+        result = await self._aask(...)
+        return result
+```
+
+### **总结：一个真正“可编排”的架构**
+
+通过这次最终的、基于官方权威反馈的重构，我们的系统架构达到了前所未有的高度：
+
+1.  **配置即编排**: 我们的`config2.yaml`现在是一份真正的“编排文件”。它精确地定义了每个`Role`的每个`Action`在执行时可以使用的**模型资源池**和**故障回退策略**。
+2.  **原生能力最大化**: 我们完全利用了`metagpt`内置的`models`配置、`Context`共享机制和`Action(llm_name_or_type=...)`的动态调度能力，代码量更少，但功能更强大。
+3.  **职责分离完美**: `Planner(ChiefPM)`负责“做什么”，`Executor`负责“用什么资源去做”，`Action`负责“怎么做”。三者权责分明，高度解耦。
 
 
 
-*   **第11步: 【功能统一】为`ReviewAndCommand`实现MCP扩展**
-    *   **理念:** 统一`ChiefPM`的复杂审阅逻辑与`TechnicalWriter`的工具调用逻辑，均使用MCP框架。
-    *   **任务:** 重构`ReviewAndCommand`的`run`方法，构建一个包含多轮虚拟角色（如`Critic`, `Optimist`）对话的`messages`列表，再交由LLM进行最终决策。
-    *   **验收标准:** 单元测试中，断言传递给`llm.acompletion`的`messages`列表长度大于3，且包含了`"name": "Critic"`等带有虚拟角色名称的条目。
+### **优化后的Milestone 2验收标准 (终极版)**
+
+**核心目标**: 验证系统能否根据`config2.yaml`中的`models`和`role_action_llm_pools`配置，为不同的`Task`动态、正确地调度`LLM`资源。
+
+我们将通过三个独立的、可量化的测试用例（Test Case）来完成验收。
 
 ---
 
-### **阶段三：最终集成与交付 (Final Integration & Delivery)**
+#### **Test Case 1: 验证“Role-Action特定资源池”的调度能力**
 
-**目标:** 整合所有功能，完成最终交付、性能报告和项目归档。
+**目的**: 验证系统是否能为一个特定的`Role-Action`组合（如`Executor-Research`）使用其专用的LLM池，而不是`Executor`角色的默认LLM。
 
-*   **第12步: 演进`run.py`以支持完整的增强流程**
-    *   **任务:** 将所有新角色和逻辑正确地串入主执行管道。
-    *   **最终数据流:** `Planner` -> `GroupPM` -> `TechnicalWriter`(内含自我反思/MCP工具调用) -> `DocAssembler` -> `QAAgent` -> `ChiefPM`(审阅) -> (修订循环: `ChangeSetGenerator` -> `DocModifier` -> `DocAssembler`) -> `ChiefPM`(批准) -> `PerformanceMonitor` & `Archiver`。
-    *   **验收标准 (端到端冒烟测试):**
-        *   运行一个复杂任务，如：`"写一篇关于AI Agent最新进展的报告，对比MetaGPT与AutoGen，并用序列图展示其修订流程。"`
-        *   **成功标准:**
-            1.  程序完整运行无异常。
-            2.  日志清晰展示了`TechnicalWriter`内部的MCP工具调用流程。
-            3.  最终文档中**同时包含**了网络搜索内容和Mermaid图表。
-            4.  日志显示修订循环**至少执行了一次**。
+**准备工作 (配置)**:
+1.  在`config2.yaml`的`models`块中，定义三个清晰可辨的模型key，例如：
+    *   `strong_model`: `gpt-4o`
+    *   `research_model`: `deepseek-v3`
+    *   `default_model`: `llama3-8b-instruct`
+2.  在`roles`块中，为`Executor`设置默认LLM：
+    *   `role: "Executor"`, `llm_key: "default_model"`
+3.  在`role_action_llm_pools`块中，为`Executor-Research`专门配置一个资源池：
+    *   `"Executor-Research": ["research_model"]`
+4.  确保`ChiefPM`生成的`Plan`中，第一个任务是`action_type: "RESEARCH"`，并且**不包含**`llm_config_key`字段。
 
-*   **第13步: 最终化`PerformanceMonitor`和`Archiver`**
-    *   **任务:** 完善成本监控和产物归档功能。
-        *   `PerformanceMonitor`: 报告应包含**总体成本**，以及**按角色、按行动细分**的Token消耗和耗时。
-        *   `Archiver`: **核心是调用`team.serialize()`**，并归档所有关键产物（最终文档、过程文档、性能报告、团队快照）。
-    *   **验收标准:**
-        *   **标准1:** `performance_report.json`内容详尽，包含分项统计。
-        *   **标准2:** `archive/`目录下的归档文件包**必须包含**最终文档、性能报告和`team_snapshot.json`。
+**执行**:
+*   运行主脚本 `python scripts/run.py ...`
 
-*   **第14步: 代码清理与文档更新**
-    *   **任务:** 移除所有被取代的旧角色和脚本，并更新项目的`README.md`和`ARCHITECTURE.md`，使其准确反映最终的系统设计。
-    *   **验收标准:**
-        *   **代码审查:** `git status`显示没有多余的、未被引用的文件。
-        *   **文档审查:** `ARCHITECTURE.md`中的流程图和角色描述与本SOP最终版完全匹配。
+**验收标准**:
+*   **日志必须清晰地显示**:
+    1.  `Executor`在处理`RESEARCH`任务时，打印出类似`"Attempting subtask with LLM: 'research_model'"`的日志。
+    2.  如果后续有`WRITE`任务，`Executor`在处理它时，应打印出`"Attempting subtask with LLM: 'default_model'"`的日志（因为它没有在`role_action_llm_pools`中特殊指定，所以使用了`Executor`的默认模型）。
+*   **结果验证**: `RESEARCH`任务的产出内容应符合`deepseek-v3`的风格和质量。
+
+**通过这个测试，我们能100%确认系统正确地解析了`role_action_llm_pools`配置，并实现了Role-Action级别的资源覆盖。**
+
+---
+
+#### **Test Case 2: 验证“Task级LLM指定”的最高优先级**
+
+**目的**: 验证在`Task`中直接指定的`llm_config_key`具有最高优先级，能覆盖`Role-Action`池和`Role`的默认配置。
+
+**准备工作 (配置)**:
+1.  保持与Test Case 1相同的`config2.yaml`配置。
+2.  **修改`CreatePlan`的Prompt**，让它为第一个`RESEARCH`任务**明确地指定**`llm_config_key`。
+    *   在`CREATE_PLAN_PROMPT`中，修改示例，让LLM知道可以这样做。例如：`"For critical research, you can specify 'llm_config_key': 'strong_model' to ensure the highest quality."`
+    *   或者，为了测试，我们可以手动修改`ChiefPM`返回的`Plan`，为第一个`Task`硬编码`llm_config_key: "strong_model"`。
+
+**执行**:
+*   运行主脚本。
+
+**验收标准**:
+*   **日志必须清晰地显示**:
+    *   `Executor`在处理第一个`RESEARCH`任务时，打印出`"Attempting subtask with LLM: 'strong_model'"`。
+    *   这个结果证明了`Task`级别的指定，成功覆盖了`Executor-Research`资源池中定义的`research_model`。
+*   **结果验证**: `RESEARCH`任务的产出内容应符合`gpt-4o`的风格和质量。
+
+**通过这个测试，我们能确认LLM调度的优先级体系（Task > Role-Action > Role > Global）是正确工作的。**
+
+---
+
+#### **Test Case 3: 验证“故障回退（Fallback）”机制**
+
+**目的**: 验证当资源池中的首选LLM失败时，系统能否自动、优雅地切换到池中的下一个备用LLM。
+
+**准备工作 (配置与代码)**:
+1.  **配置一个会失败的LLM**: 在`config2.yaml`的`models`块中，为一个模型（比如`research_model`）故意配置一个**错误的API Key**或一个**不存在的`base_url`**。
+2.  **配置一个带备用的资源池**: 在`role_action_llm_pools`中，为`Executor-Research`配置一个包含主力和备用的池：
+    *   `"Executor-Research": ["research_model", "default_model"]`
+3.  确保`ChiefPM`生成的`Plan`中，`RESEARCH`任务不指定`llm_config_key`，以便它使用这个资源池。
+
+**执行**:
+*   运行主脚本。
+
+**验收标准**:
+*   **日志必须清晰地显示**:
+    1.  `Executor`首先打印`"Attempting subtask with LLM: 'research_model'"`。
+    2.  紧接着，打印一条**警告或错误**日志，内容为`"Subtask failed with LLM 'research_model'. Error: ... Trying next fallback LLM."`。
+    3.  然后，打印一条新的尝试日志：`"Attempting subtask with LLM: 'default_model'"`。
+    4.  最后，任务成功完成。
+*   **功能验证**: 整个流程没有因为第一个LLM的失败而中断，而是成功地用备用模型完成了任务并继续执行后续流程。
+
+**通过这个测试，我们能证明我们系统的核心优势之一——健壮性——是真实有效的。**
+
+
+
+
+
+#### **3. `Executor.run`的最终实现**
+
+这是整个动态调度逻辑的核心，现在它将完全依赖`metagpt`的内置机制。
+
+```python
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/executor.py (最终实现)
+
+# ... (imports) ...
+
+class Executor(DocWriterBaseRole):
+    # ... (__init__不变, set_actions([Research, Write, Review])) ...
+
+    async def run(self, task: Task, completed_tasks: Dict[str, Task]) -> Task:
+        logger.info(f"Executor received task '{task.task_id}' with type '{task.action_type}'.")
+        
+        # 1. 根据action_type找到对应的Action类
+        action_class = next((type(act) for act in self.actions if act.name == task.action_type), None)
+        
+        if not action_class:
+            task.result = f"Error: No action class found for type '{task.action_type}'"
+            logger.error(task.result)
+            return task
+
+        # 2. 【核心】动态实例化Action，并通过llm_name_or_type传递LLM key
+        #    如果task.llm_config_key为None，则Action会自动使用Executor的默认LLM。
+        #    metagpt框架会处理LLM的创建和注入。
+        logger.info(f"Instantiating action '{action_class.__name__}' with LLM key: '{task.llm_config_key or 'Role default'}'.")
+        action_instance = action_class(
+            llm_name_or_type=task.llm_config_key,
+            context=self.context # 将共享上下文传递给Action
+        )
+        
+        # 3. 准备其他参数并执行
+        context_str = "\n\n---\n\n".join([
+            # ... (上下文拼接逻辑不变)
+        ])
+        
+        action_kwargs = {
+            "instruction": task.instruction,
+            "context": context_str,
+            # ... (其他参数准备逻辑不变)
+        }
+        
+        action_result = await action_instance.run(**action_kwargs)
+        task.result = action_result
+        
+        return task
+```
+
+#### **4. `CreatePlan` Action的增强**
+
+我们需要确保`ChiefPM`在生成`Plan`时，能为需要强推理的任务（如`REFLECT`）分配`"strong_model"`。
+
+```python
+# /root/metagpt/mgfr/metagpt_doc_writer/actions/create_plan.py (Prompt增强)
+
+CREATE_PLAN_PROMPT = """
+You are an expert project manager...
+Each task must have:
+...
+- An optional `llm_config_key`. For tasks requiring deep reasoning, creativity, or reflection (like 'REFLECT'), set this to "strong_model". For most standard tasks, you can omit this field to use the default model.
+...
+"""
+```
+
+
+### **Milestone 3 (优化): 实现带限流的并发任务处理**
+
+**目标**: 在实现并行的基础上，增加并发控制，防止API超限。
+
+**要实现什么**:
+1.  修改`run.py`主循环，使用`asyncio.gather`并发执行任务。
+2.  **（采纳官方建议）**在`run.py`中，为需要限流的LLM API创建一个`asyncio.Semaphore`，并将其放入共享的`Context`中。例如：`ctx.strong_model_semaphore = asyncio.Semaphore(3)`。
+3.  修改`Executor`，让它在调用`Action`前，检查该`Action`将要使用的LLM是否需要限流。如果需要，则在`await action_instance.run(...)`的调用外层包裹`async with ctx.strong_model_semaphore:`。
+
+**需要注意的`metag-pt`框架内容**:
+*   **`cost_manager`并发安全**: 通过`Semaphore`限制对同一LLM实例的并发调用，是保护`cost_manager`的最佳实践。
+*   **`Context`共享**: 将`Semaphore`放入`Context`是向所有角色广播这个“共享锁”的最优雅方式。
+
+**如何验收**:
+1.  日志显示并行任务几乎同时开始。
+2.  即使有大量并行任务请求同一个强模型，API也不会因为速率超限而报错。
+
+---
+
+### **Milestone 4 (优化): 实现基于持久化路径的RAG**
+
+**目标**: 采纳官方建议，使用更健壮的、基于路径的RAG持久化和加载机制。
+
+**要实现什么**:
+1.  创建`scripts/build_rag_index.py`，它将索引持久化到磁盘上的一个固定路径，例如`./storage/rag_index`。
+2.  修改`run.py`，在启动时不再直接加载引擎，而是将**索引路径**放入`Context`中，例如`ctx.rag_index_path = "./storage/rag_index"`。
+3.  修改`Research` Action（或其他需要RAG的Action），让它在`run`方法内部，通过`SimpleEngine.from_storage(context_path=self.context.rag_index_path)`来**即时加载**RAG引擎。
+
+**需要注意的`metagpt`框架内容**:
+*   **`SimpleEngine.from_storage()`**: 这是官方推荐的从持久化数据中恢复RAG引擎的方法。
+*   **懒加载**: 在`Action`内部即时加载，而不是在`run.py`启动时就加载，可以加快程序的启动速度，并降低内存的常驻开销。
+
+**如何验收**:
+1.  `Research` Action的日志显示它成功从指定路径加载了RAG引擎。
+2.  最终产出中包含了来自本地知识库的、非网络搜索能得到的内容。
+
