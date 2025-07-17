@@ -1,44 +1,65 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/actions/create_plan.py (最终版)
+# /root/metagpt/mgfr/metagpt_doc_writer/actions/create_plan.py
 
 import json
 from metagpt.actions import Action
 from metagpt.utils.common import OutputParser
 from metagpt_doc_writer.schemas.doc_structures import Plan
 from metagpt.logs import logger
+from typing import ClassVar
 
-CREATE_PLAN_PROMPT = """
-You are an expert project manager. Your task is to break down the user's high-level goal into a detailed, step-by-step plan.
-The user wants: "{goal}"
+# 【核心修正】: 将 "ReflectAndOptimize" 彻底替换为 "Revise"
+CREATE_PLAN_PROMPT: ClassVar[str] = """
+You are a master strategist and project manager. Your task is to create a sophisticated, step-by-step execution plan based on a user's high-level goal.
 
-Based on this goal, create a sequence of tasks. Each task must have:
-- A unique `task_id`.
-- A clear `instruction` describing what to do.
-- An `action_type` chosen from the following list: ["RESEARCH", "WRITE", "REVIEW"].
-- A `use_tools` list, containing any tools needed from this list: ["web_search"]. For most tasks, especially "RESEARCH", this is recommended. For other tasks, it's likely an empty list [].
-- A list of `dependent_task_ids`. The first task has no dependencies.
+**The user wants: "{goal}"**
 
-Respond ONLY with a valid JSON object. Do not add any other text or comments.
+Create the plan as a valid JSON object. For each task, you MUST define the following fields:
+- `task_id`: A unique identifier, e.g., "task_1".
+- `instruction`: A clear, actionable instruction for an AI agent.
+- `action_type`: **This is CRITICAL. You MUST use the exact ClassName-style strings from this list**: ["Research", "Write", "Review", "Revise"].
+- `target_snippet_id`: For a new `Write` task, create a unique ID (e.g., "installation_guide"). For `Review` or `Revise` tasks, you MUST use the `target_snippet_id` of the content they are targeting. For `Research` tasks, this should be `null`.
+- `use_tools`: A list of tools required, e.g., ["web_search"].
+- `dependent_task_ids`: A list of `task_id`s that must be completed before this task can start.
 
-Example:
+**Example of a good plan:**
 {{
   "goal": "Write a tutorial about pytest",
   "tasks": [
     {{
       "task_id": "task_1",
-      "instruction": "Research the key features and common use cases of pytest.",
-      "action_type": "RESEARCH",
+      "instruction": "Research the core features of pytest.",
+      "action_type": "Research",
+      "target_snippet_id": null,
       "use_tools": ["web_search"],
       "dependent_task_ids": []
     }},
     {{
       "task_id": "task_2",
-      "instruction": "Create a detailed outline for the pytest tutorial based on the research.",
-      "action_type": "WRITE",
+      "instruction": "Write the introduction section for the pytest tutorial.",
+      "action_type": "Write",
+      "target_snippet_id": "pytest_intro",
       "use_tools": [],
       "dependent_task_ids": ["task_1"]
+    }},
+    {{
+      "task_id": "task_3",
+      "instruction": "Review the introduction for clarity.",
+      "action_type": "Review",
+      "target_snippet_id": "pytest_intro",
+      "use_tools": [],
+      "dependent_task_ids": ["task_2"]
+    }},
+    {{
+      "task_id": "task_4",
+      "instruction": "Based on the review, revise the introduction.",
+      "action_type": "Revise",
+      "target_snippet_id": "pytest_intro",
+      "dependent_task_ids": ["task_3"]
     }}
   ]
 }}
+
+Now, generate the JSON plan for the user's goal. Respond with ONLY the valid JSON object.
 """
 
 class CreatePlan(Action):

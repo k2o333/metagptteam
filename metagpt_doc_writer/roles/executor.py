@@ -2,60 +2,74 @@
 
 from .base_role import DocWriterBaseRole
 from metagpt.logs import logger
+from metagpt.actions.action import Action
 from metagpt_doc_writer.schemas.doc_structures import Task
+from typing import Dict, Any, Type
+
+# 导入所有需要用到的Action类
 from metagpt_doc_writer.actions.research import Research
 from metagpt_doc_writer.actions.write import Write
 from metagpt_doc_writer.actions.review import Review
-from typing import Dict
+from metagpt_doc_writer.actions.revise import Revise
 
 class Executor(DocWriterBaseRole):
     name: str = "Executor"
     profile: str = "Task Executor"
-    goal: str = "Execute tasks by dispatching resources to the appropriate actions."
+    goal: str = "Execute a plan step-by-step, ensuring actions have the right context and resources."
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([Research, Write, Review])
-
-    async def run(self, task: Task, completed_tasks: Dict[str, Task]) -> Task:
+        # 传递Action的类，让框架处理实例化和依赖注入
+        self.set_actions([
+            Research,
+            Write,
+            Review,
+            Revise,
+        ])
+        logger.info(f"Executor initialized. Available action class names: {[act.__class__.__name__ for act in self.actions]}")
+        
+    async def run(
+        self, 
+        task: Task, 
+        completed_tasks: Dict[str, Task],
+        document_snippets: Dict[str, str]
+    ) -> Task:
         """
-        接收一个任务，准备资源，执行它，并返回更新了结果的任务对象。
+        被外部调度器(run.py)调用的主要入口。
         """
         logger.info(f"Executor received task '{task.task_id}' with type '{task.action_type}'.")
         
-        action_to_run = next((act for act in self.actions if act.name == task.action_type), None)
+        # 1. 使用Action的类名进行匹配
+        action_to_run = next((act for act in self.actions if act.__class__.__name__ == task.action_type), None)
         
+        # 【核心修正】: 为if语句提供正确的缩进代码块
         if not action_to_run:
-            task.result = f"Error: No action found for type '{task.action_type}'"
-            logger.error(task.result)
-            return task
+            available_actions = [act.__class__.__name__ for act in self.actions]
+            raise ValueError(f"Executor has no action for type '{task.action_type}'. Available actions: {available_actions}")
 
-        if not action_to_run.llm:
-            action_to_run.set_llm(self.llm)
-
+        # 2. 准备上下文
         context_str = "\n\n---\n\n".join([
-            f"### Context from dependent task '{dep_id}':\nInstruction: '{completed_tasks[dep_id].instruction}'\n\nResult:\n{completed_tasks[dep_id].result}"
+            f"### Context from dependent task '{dep_id}':\n"
+            f"Result:\n{completed_tasks[dep_id].result}"
             for dep_id in task.dependent_task_ids if dep_id in completed_tasks
         ])
         
-        # 准备一个统一的、包含所有潜在资源的参数字典
-        action_kwargs = {
+        # 3. 准备传递给Action.run的参数
+        action_kwargs: Dict[str, Any] = {
             "instruction": task.instruction,
             "context": context_str,
-            "enable_web_search": "web_search" in task.use_tools,
-            "mcp_manager": self.mcp_manager,
-            "mcp_permissions": {
-                tool_name: self.can_use_mcp_tool(tool_name)
-                for tool_name in task.use_tools if tool_name != "web_search"
-            }
         }
-        
-        if action_kwargs["enable_web_search"]:
-            logger.info(f"Task '{task.task_id}' requires 'web_search'. Enabling SearchEngine for Action.")
-        if action_kwargs["mcp_permissions"]:
-            logger.info(f"Task '{task.task_id}' requires MCP tools. Passing permissions: {action_kwargs['mcp_permissions']}")
 
-        # 使用 **kwargs 解包，将统一的参数集传递给任何Action
+        # 4. 为Revise任务准备artifact
+        if task.action_type == "Revise":
+            if task.target_snippet_id:
+                action_kwargs["artifact"] = document_snippets.get(task.target_snippet_id, "")
+                if not action_kwargs["artifact"]:
+                    logger.warning(f"Revise task for snippet '{task.target_snippet_id}' has no prior artifact.")
+            else:
+                raise ValueError(f"Revise task '{task.task_id}' is missing a 'target_snippet_id'.")
+        
+        # 5. 执行Action
         action_result = await action_to_run.run(**action_kwargs)
         task.result = action_result
         

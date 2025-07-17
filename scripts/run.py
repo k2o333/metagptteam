@@ -7,23 +7,19 @@ import yaml
 import os
 import json
 
-# --- 路径设置 ---
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-# --- MetaGPT 和自定义模块导入 ---
 from metagpt.config2 import Config
 from metagpt.context import Context
 from metagpt.logs import logger
 from metagpt.schema import Message
-from metagpt.actions.add_requirement import UserRequirement as OrigUserRequirement
+from metagpt.provider.llm_provider_registry import create_llm_instance
+from metagpt.configs.models_config import ModelsConfig
 
-# 导入角色和Schema
 from metagpt_doc_writer.roles import ChiefPM, Executor, Archiver
-from metagpt_doc_writer.schemas.doc_structures import Plan, Task, UserRequirement
-from metagpt_doc_writer.mcp.manager import MCPManager
+from metagpt_doc_writer.schemas.doc_structures import Plan, Task
+from metagpt_doc_writer.actions.finalize import FinalizeDocument
 
 # --- 全局常量 ---
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOGS_DIR = PROJECT_ROOT / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 logger.add(LOGS_DIR / "run.log", rotation="10 MB", retention="1 week", level="INFO")
@@ -32,100 +28,108 @@ OUTPUT_PATH.mkdir(exist_ok=True)
 ARCHIVE_PATH = PROJECT_ROOT / "archive"
 ARCHIVE_PATH.mkdir(exist_ok=True)
 
-async def main(idea: str, investment: float = 100.0):
-    """主异步函数，使用Context对象管理共享资源。"""
+async def main(idea: str):
+    """主异步函数，采用完全的外部手动调度，并遵循所有官方最佳实践。"""
     logger.info(f"Starting document generation process for: '{idea}'")
 
-    # --- 1. 配置加载 ---
+    # --- 1. 配置与Context ---
     config_yaml_path = Path(os.environ.get("METAGPT_CONFIG_PATH", Path.home() / ".metagpt/config2.yaml"))
     if not config_yaml_path.exists():
         config_yaml_path = PROJECT_ROOT / "configs" / "config2.yaml"
     if not config_yaml_path.exists():
-        raise FileNotFoundError(f"Configuration file (config2.yaml) not found at: {config_yaml_path}")
+        raise FileNotFoundError(f"Configuration file not found at: {config_yaml_path}")
     
-    with open(config_yaml_path, 'r', encoding='utf-8') as f:
-        full_config = yaml.safe_load(f)
-
-    # --- 2. 创建和配置共享的Context对象 ---
     config = Config.from_yaml_file(config_yaml_path)
-    if hasattr(config, 'human_in_loop'):
-        config.human_in_loop = False
-    
     ctx = Context(config=config)
     
-    # 初始化MCP并放入Context
-    mcp_server_configs = full_config.get("mcp_servers", {})
-    mcp_manager = MCPManager(server_configs=mcp_server_configs)
-    await mcp_manager.start_servers()
-    
-    logger.info("Shared Context and MCP Manager created successfully.")
+    assert ctx.config.llm is not None, "Default LLM config is missing."
 
-    # --- 3. 初始化角色，并传入依赖 ---
-    mcp_bindings = full_config.get("role_mcp_bindings", {})
-    
-    chief_pm = ChiefPM(context=ctx, mcp_manager=mcp_manager, mcp_bindings=mcp_bindings)
-    executor = Executor(context=ctx, mcp_manager=mcp_manager, mcp_bindings=mcp_bindings)
+    # --- 2. 初始化角色 ---
+    logger.info("Initializing roles as standalone services...")
+    chief_pm = ChiefPM(context=ctx)
+    executor = Executor(context=ctx)
     archiver = Archiver(context=ctx, archive_path=str(ARCHIVE_PATH))
-    
-    logger.info("Core roles (ChiefPM, Executor, Archiver) initialized.")
+    logger.info("Core roles initialized.")
 
-    # --- 4. 手动串行调度循环 ---
+    # --- 3. 调度循环 ---
+    # 阶段1: 规划
     logger.info("--- Phase 1: Planning ---")
-    user_req_msg = Message(content=idea, instruct_content=UserRequirement(content=idea), cause_by=OrigUserRequirement)
-    plan_msg = await chief_pm.run(user_req_msg)
-    if not plan_msg or not isinstance(plan_msg.instruct_content, Plan):
-        logger.error("ChiefPM failed to generate a valid plan. Aborting.")
-        await mcp_manager.close()
-        return
-        
+    plan_msg = await chief_pm.run(Message(content=idea))
     plan: Plan = plan_msg.instruct_content
     logger.success(f"Plan generated with {len(plan.tasks)} tasks.")
 
+    # 阶段2: 执行
     logger.info("--- Phase 2: Execution ---")
     completed_tasks: dict[str, Task] = {}
+    document_snippets: dict[str, str] = {}
+
     while len(completed_tasks) < len(plan.tasks):
         ready_tasks = plan.get_ready_tasks(list(completed_tasks.keys()))
         if not ready_tasks:
             if len(completed_tasks) < len(plan.tasks):
-                logger.warning("Execution loop finished, but not all tasks are complete. Possible dependency cycle.")
+                logger.warning("Execution loop finished, but not all tasks are complete.")
             break
             
         current_task = plan.task_map[ready_tasks[0].task_id]
         
         logger.info(f"Executing task '{current_task.task_id}': {current_task.instruction}")
         
-        updated_task = await executor.run(current_task, completed_tasks)
-        completed_tasks[updated_task.task_id] = updated_task
-        
-        logger.success(f"Task '{updated_task.task_id}' completed.")
+        try:
+            updated_task = await executor.run(current_task, completed_tasks, document_snippets)
+            completed_tasks[updated_task.task_id] = updated_task
+            if updated_task.target_snippet_id:
+                document_snippets[updated_task.target_snippet_id] = updated_task.result
+            logger.success(f"Task '{updated_task.task_id}' completed.")
+        except Exception as e:
+            logger.error(f"Task '{current_task.task_id}' failed with a critical error: {e}", exc_info=True)
+            failed_task = current_task
+            failed_task.result = f"CRITICAL EXECUTION FAILED: {e}"
+            completed_tasks[failed_task.task_id] = failed_task
+            break
 
     logger.info("--- All tasks executed. ---")
 
-    # --- 5. 结果处理与归档 ---
-    logger.info("--- Phase 3: Finalizing ---")
-    final_doc_content = f"# PRD: {idea}\n\n---\n"
-    for task_id in sorted(plan.task_map.keys()):
-        task = completed_tasks.get(task_id)
-        if task:
-            final_doc_content += f"## ✅ Task: {task.instruction}\n**Action Type**: `{task.action_type}`\n**Result**:\n\n{task.result}\n\n---\n"
-        else:
-            final_doc_content += f"## ❌ Task: {plan.task_map[task_id].instruction}\n**Result**: Skipped or Failed\n\n---\n"
+    # 阶段3: 整合与定稿
+    logger.info("--- Phase 3: Finalization ---")
+    
+    # 【核心修正】: 为FinalizeDocument创建一个拥有正确LLM配置的专用Context
+    models_config = ModelsConfig.default()
+    strong_llm_key = "gpt_4o_strong"
+    strong_llm_config = models_config.get(strong_llm_key)
+    
+    if strong_llm_config:
+        # 创建一个新配置对象，只覆盖llm部分
+        finalize_config = config.model_copy(deep=True)
+        finalize_config.llm = strong_llm_config
+        finalize_ctx = Context(config=finalize_config)
+        logger.info(f"Using strong model '{strong_llm_key}' for finalization.")
+    else:
+        # 如果找不到强模型配置，就使用默认的Context
+        finalize_ctx = ctx
+        logger.warning(f"Strong model key '{strong_llm_key}' not found in config.models, using default LLM for finalization.")
+    
+    # 创建Action实例时，传入这个专用的Context
+    finalize_action = FinalizeDocument(context=finalize_ctx)
+    
+    # 现在Action会从其自己的context中正确获取LLM，无需手动set_llm
+    pure_document_content = await finalize_action.run(plan=plan, snippets=document_snippets)
     
     safe_idea = "".join(c for c in idea if c.isalnum() or c in " _-").rstrip()
-    final_doc_path = OUTPUT_PATH / f"prd_{safe_idea[:50]}.md"
-    final_doc_path.write_text(final_doc_content, encoding='utf-8')
-    logger.success(f"Final document generated at: {final_doc_path}")
+    final_doc_path = OUTPUT_PATH / f"final_doc_{safe_idea[:50]}.md"
+    final_doc_path.write_text(pure_document_content, encoding='utf-8')
+    logger.success(f"Final, clean document generated at: {final_doc_path}")
 
-    await archiver.archive(final_doc_path=str(final_doc_path), all_tasks=completed_tasks, plan=plan)
-
-    # --- 6. 清理与关闭 ---
-    await mcp_manager.close()
-    logger.info("MCP Manager connections closed.")
+    # 阶段4: 归档
+    await archiver.archive(
+        final_doc_path=str(final_doc_path), 
+        all_tasks=completed_tasks,
+        plan=plan
+    )
 
 if __name__ == "__main__":
     idea_from_args = " ".join(sys.argv[1:])
     if not idea_from_args:
-        idea_from_args = "Write a detailed technical guide on how to install autogen and implement a concurrent multi-expert discussion using its GroupChat feature."
+        idea_from_args = "metagpt最新版本的_plan_and_act模式是什么"
     
     try:
         asyncio.run(main(idea=idea_from_args))

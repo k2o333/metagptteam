@@ -2,84 +2,32 @@
     "env": {
         "desc": "",
         "roles": {
-            "Chief Product Manager": {
+            "ChiefPM": {
                 "name": "ChiefPM",
                 "profile": "Chief Product Manager",
-                "goal": "Oversee the entire document generation process and ensure final quality.",
+                "goal": "Receive user requirements and create a detailed, executable plan.",
                 "constraints": "",
                 "desc": "",
                 "is_human": false,
+                "enable_memory": true,
                 "role_id": "",
                 "states": [
-                    "0. DecomposeTopic",
-                    "1. ReviewAndCommand",
-                    "2. ApproveTask"
+                    "0. CreatePlan"
                 ],
                 "actions": [
                     {
-                        "name": "DecomposeTopic",
+                        "name": "CreatePlan",
                         "i_context": "",
-                        "prefix": "You are a Chief Product Manager, named ChiefPM, your goal is Oversee the entire document generation process and ensure final quality.. ",
+                        "prefix": "You are a Chief Product Manager, named ChiefPM, your goal is Receive user requirements and create a detailed, executable plan.. ",
                         "desc": "",
-                        "__module_class_name": "metagpt_doc_writer.roles.chief_pm.DecomposeTopic"
-                    },
-                    {
-                        "name": "ReviewAndCommand",
-                        "i_context": "",
-                        "prefix": "You are a Chief Product Manager, named ChiefPM, your goal is Oversee the entire document generation process and ensure final quality.. ",
-                        "desc": "",
-                        "__module_class_name": "metagpt_doc_writer.actions.review_and_command.ReviewAndCommand"
-                    },
-                    {
-                        "name": "ApproveTask",
-                        "i_context": "",
-                        "prefix": "You are a Chief Product Manager, named ChiefPM, your goal is Oversee the entire document generation process and ensure final quality.. ",
-                        "desc": "",
-                        "__module_class_name": "metagpt_doc_writer.roles.chief_pm.ApproveTask"
+                        "llm_name_or_type": null,
+                        "__module_class_name": "metagpt_doc_writer.actions.create_plan.CreatePlan"
                     }
                 ],
                 "rc": {
                     "memory": {
-                        "storage": [
-                            {
-                                "id": "12a95eb5abb141738363827360c4bafc",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "UserRequirement",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "content": "write a simple search-based report on MCP"
-                                    }
-                                },
-                                "role": "Human",
-                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                                "sent_from": "",
-                                "send_to": [
-                                    "ChiefPM"
-                                ]
-                            }
-                        ],
-                        "index": {
-                            "metagpt.actions.add_requirement.UserRequirement": [
-                                {
-                                    "id": "12a95eb5abb141738363827360c4bafc",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "UserRequirement",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "content": "write a simple search-based report on MCP"
-                                        }
-                                    },
-                                    "role": "Human",
-                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "ChiefPM"
-                                    ]
-                                }
-                            ]
-                        },
+                        "storage": [],
+                        "index": {},
                         "ignore_id": false
                     },
                     "working_memory": {
@@ -89,13 +37,10 @@
                     },
                     "state": -1,
                     "watch": [
-                        "metagpt_doc_writer.schemas.doc_structures.FullDraft",
-                        "metagpt_doc_writer.schemas.doc_structures.QAReport",
-                        "metagpt_doc_writer.schemas.doc_structures.RefinedTask",
                         "metagpt.actions.add_requirement.UserRequirement"
                     ],
                     "react_mode": "react",
-                    "max_react_loop": 5
+                    "max_react_loop": 1
                 },
                 "addresses": [
                     "metagpt_doc_writer.roles.chief_pm.ChiefPM",
@@ -117,95 +62,25 @@
                     "auto_run": false
                 },
                 "recovered": false,
-                "latest_observed_msg": {
-                    "id": "12a95eb5abb141738363827360c4bafc",
-                    "content": "write a simple search-based report on MCP",
-                    "instruct_content": {
-                        "class": "UserRequirement",
-                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                        "value": {
-                            "content": "write a simple search-based report on MCP"
-                        }
-                    },
-                    "role": "Human",
-                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                    "sent_from": "",
-                    "send_to": [
-                        "ChiefPM"
-                    ]
-                },
+                "latest_observed_msg": null,
+                "observe_all_msg_from_buffer": false,
                 "__module_class_name": "metagpt_doc_writer.roles.chief_pm.ChiefPM"
             },
-            "Group Product Manager": {
-                "name": "GroupPM",
-                "profile": "Group Product Manager",
-                "goal": "Break down high-level project modules into detailed chapter outlines.",
+            "Executor": {
+                "name": "Executor",
+                "profile": "Task Executor",
+                "goal": "Execute a plan step-by-step, managing document snippets along the way.",
                 "constraints": "",
                 "desc": "",
                 "is_human": false,
+                "enable_memory": true,
                 "role_id": "",
-                "states": [
-                    "0. CreateModuleOutline"
-                ],
-                "actions": [
-                    {
-                        "name": "CreateModuleOutline",
-                        "i_context": "",
-                        "prefix": "You are a Group Product Manager, named GroupPM, your goal is Break down high-level project modules into detailed chapter outlines.. ",
-                        "desc": "",
-                        "__module_class_name": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline"
-                    }
-                ],
+                "states": [],
+                "actions": [],
                 "rc": {
                     "memory": {
-                        "storage": [
-                            {
-                                "id": "5b7c249a9b5f40c59516ae3b64dc0b8b",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ProjectPlan",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "modules": [
-                                            "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                            "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                            "3. Review and Refinement of 'write a simple search-based report on MCP'"
-                                        ]
-                                    }
-                                },
-                                "role": "Chief Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.chief_pm.DecomposeTopic",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            }
-                        ],
-                        "index": {
-                            "metagpt_doc_writer.roles.chief_pm.DecomposeTopic": [
-                                {
-                                    "id": "5b7c249a9b5f40c59516ae3b64dc0b8b",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ProjectPlan",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "modules": [
-                                                "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                                "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                                "3. Review and Refinement of 'write a simple search-based report on MCP'"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Chief Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.chief_pm.DecomposeTopic",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                }
-                            ]
-                        },
+                        "storage": [],
+                        "index": {},
                         "ignore_id": false
                     },
                     "working_memory": {
@@ -215,18 +90,18 @@
                     },
                     "state": -1,
                     "watch": [
-                        "metagpt_doc_writer.roles.chief_pm.DecomposeTopic"
+                        "metagpt.actions.add_requirement.UserRequirement"
                     ],
-                    "react_mode": "react",
+                    "react_mode": "plan_and_act",
                     "max_react_loop": 1
                 },
                 "addresses": [
-                    "GroupPM",
-                    "metagpt_doc_writer.roles.group_pm.GroupPM"
+                    "metagpt_doc_writer.roles.executor.Executor",
+                    "Executor"
                 ],
                 "planner": {
                     "plan": {
-                        "goal": "",
+                        "goal": "Execute a plan step-by-step, managing document snippets along the way.",
                         "context": "",
                         "tasks": [],
                         "task_map": {},
@@ -237,659 +112,10 @@
                         "index": {},
                         "ignore_id": false
                     },
-                    "auto_run": false
+                    "auto_run": true
                 },
                 "recovered": false,
-                "latest_observed_msg": {
-                    "id": "5b7c249a9b5f40c59516ae3b64dc0b8b",
-                    "content": "write a simple search-based report on MCP",
-                    "instruct_content": {
-                        "class": "ProjectPlan",
-                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                        "value": {
-                            "modules": [
-                                "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                "3. Review and Refinement of 'write a simple search-based report on MCP'"
-                            ]
-                        }
-                    },
-                    "role": "Chief Product Manager",
-                    "cause_by": "metagpt_doc_writer.roles.chief_pm.DecomposeTopic",
-                    "sent_from": "",
-                    "send_to": [
-                        "<all>"
-                    ]
-                },
-                "__module_class_name": "metagpt_doc_writer.roles.group_pm.GroupPM"
-            },
-            "Task Dispatcher": {
-                "name": "TaskDispatcher",
-                "profile": "Task Dispatcher",
-                "goal": "Generate initial tasks from module outlines",
-                "constraints": "",
-                "desc": "",
-                "is_human": false,
-                "role_id": "",
-                "states": [
-                    "0. GenerateInitialTask"
-                ],
-                "actions": [
-                    {
-                        "name": "GenerateInitialTask",
-                        "i_context": "",
-                        "prefix": "You are a Task Dispatcher, named TaskDispatcher, your goal is Generate initial tasks from module outlines. ",
-                        "desc": "",
-                        "__module_class_name": "metagpt_doc_writer.roles.task_dispatcher.GenerateInitialTask"
-                    }
-                ],
-                "rc": {
-                    "memory": {
-                        "storage": [
-                            {
-                                "id": "5b7c249a9b5f40c59516ae3b64dc0b8b",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ProjectPlan",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "modules": [
-                                            "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                            "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                            "3. Review and Refinement of 'write a simple search-based report on MCP'"
-                                        ]
-                                    }
-                                },
-                                "role": "Chief Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.chief_pm.DecomposeTopic",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "2666483994c64341957cb6927ad349e2",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ModuleOutline",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "module_title": "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                        "chapters": [
-                                            "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                            "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                        ]
-                                    }
-                                },
-                                "role": "Group Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "0431a6c65a684f17a4e821b785d1b073",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ModuleOutline",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "module_title": "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                        "chapters": [
-                                            "2. Drafting Initial Content for 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                            "2. Drafting Initial Content for 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                        ]
-                                    }
-                                },
-                                "role": "Group Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "07fa610c60514461887c9b190da4a6ad",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ModuleOutline",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "module_title": "3. Review and Refinement of 'write a simple search-based report on MCP'",
-                                        "chapters": [
-                                            "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                            "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                        ]
-                                    }
-                                },
-                                "role": "Group Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "bd639ccb088a40b080a81f57ec308e69",
-                                "content": "All module outlines for 'write a simple search-based report on MCP' have been created.",
-                                "instruct_content": null,
-                                "role": "Group Product Manager",
-                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            }
-                        ],
-                        "index": {
-                            "metagpt_doc_writer.roles.chief_pm.DecomposeTopic": [
-                                {
-                                    "id": "5b7c249a9b5f40c59516ae3b64dc0b8b",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ProjectPlan",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "modules": [
-                                                "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                                "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                                "3. Review and Refinement of 'write a simple search-based report on MCP'"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Chief Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.chief_pm.DecomposeTopic",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                }
-                            ],
-                            "metagpt_doc_writer.roles.group_pm.CreateModuleOutline": [
-                                {
-                                    "id": "2666483994c64341957cb6927ad349e2",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ModuleOutline",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "module_title": "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                            "chapters": [
-                                                "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                                "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Group Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                },
-                                {
-                                    "id": "0431a6c65a684f17a4e821b785d1b073",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ModuleOutline",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "module_title": "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                            "chapters": [
-                                                "2. Drafting Initial Content for 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                                "2. Drafting Initial Content for 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Group Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                },
-                                {
-                                    "id": "07fa610c60514461887c9b190da4a6ad",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ModuleOutline",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "module_title": "3. Review and Refinement of 'write a simple search-based report on MCP'",
-                                            "chapters": [
-                                                "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                                "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Group Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                }
-                            ],
-                            "metagpt.actions.add_requirement.UserRequirement": [
-                                {
-                                    "id": "bd639ccb088a40b080a81f57ec308e69",
-                                    "content": "All module outlines for 'write a simple search-based report on MCP' have been created.",
-                                    "instruct_content": null,
-                                    "role": "Group Product Manager",
-                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                }
-                            ]
-                        },
-                        "ignore_id": false
-                    },
-                    "working_memory": {
-                        "storage": [],
-                        "index": {},
-                        "ignore_id": false
-                    },
-                    "state": -1,
-                    "watch": [
-                        "metagpt_doc_writer.roles.group_pm.CreateModuleOutline"
-                    ],
-                    "react_mode": "react",
-                    "max_react_loop": 1
-                },
-                "addresses": [
-                    "metagpt_doc_writer.roles.task_dispatcher.TaskDispatcher",
-                    "TaskDispatcher"
-                ],
-                "planner": {
-                    "plan": {
-                        "goal": "",
-                        "context": "",
-                        "tasks": [],
-                        "task_map": {},
-                        "current_task_id": ""
-                    },
-                    "working_memory": {
-                        "storage": [],
-                        "index": {},
-                        "ignore_id": false
-                    },
-                    "auto_run": false
-                },
-                "recovered": false,
-                "latest_observed_msg": {
-                    "id": "07fa610c60514461887c9b190da4a6ad",
-                    "content": "write a simple search-based report on MCP",
-                    "instruct_content": {
-                        "class": "ModuleOutline",
-                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                        "value": {
-                            "module_title": "3. Review and Refinement of 'write a simple search-based report on MCP'",
-                            "chapters": [
-                                "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                            ]
-                        }
-                    },
-                    "role": "Group Product Manager",
-                    "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                    "sent_from": "",
-                    "send_to": [
-                        "<all>"
-                    ]
-                },
-                "__module_class_name": "metagpt_doc_writer.roles.task_dispatcher.TaskDispatcher"
-            },
-            "Task Refiner": {
-                "name": "TaskRefiner",
-                "profile": "Task Refiner",
-                "goal": "Refine initial tasks to make them more detailed and actionable",
-                "constraints": "",
-                "desc": "",
-                "is_human": false,
-                "role_id": "",
-                "states": [
-                    "0. RefineTask"
-                ],
-                "actions": [
-                    {
-                        "name": "RefineTask",
-                        "i_context": "",
-                        "prefix": "You are a Task Refiner, named TaskRefiner, your goal is Refine initial tasks to make them more detailed and actionable. ",
-                        "desc": "",
-                        "__module_class_name": "metagpt_doc_writer.roles.task_refiner.RefineTask"
-                    }
-                ],
-                "rc": {
-                    "memory": {
-                        "storage": [
-                            {
-                                "id": "5b7c249a9b5f40c59516ae3b64dc0b8b",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ProjectPlan",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "modules": [
-                                            "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                            "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                            "3. Review and Refinement of 'write a simple search-based report on MCP'"
-                                        ]
-                                    }
-                                },
-                                "role": "Chief Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.chief_pm.DecomposeTopic",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "2666483994c64341957cb6927ad349e2",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ModuleOutline",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "module_title": "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                        "chapters": [
-                                            "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                            "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                        ]
-                                    }
-                                },
-                                "role": "Group Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "0431a6c65a684f17a4e821b785d1b073",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ModuleOutline",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "module_title": "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                        "chapters": [
-                                            "2. Drafting Initial Content for 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                            "2. Drafting Initial Content for 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                        ]
-                                    }
-                                },
-                                "role": "Group Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "07fa610c60514461887c9b190da4a6ad",
-                                "content": "write a simple search-based report on MCP",
-                                "instruct_content": {
-                                    "class": "ModuleOutline",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "module_title": "3. Review and Refinement of 'write a simple search-based report on MCP'",
-                                        "chapters": [
-                                            "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                            "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                        ]
-                                    }
-                                },
-                                "role": "Group Product Manager",
-                                "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "bd639ccb088a40b080a81f57ec308e69",
-                                "content": "All module outlines for 'write a simple search-based report on MCP' have been created.",
-                                "instruct_content": null,
-                                "role": "Group Product Manager",
-                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "415f841d35114481bc85ab87824a7b9b",
-                                "content": "Initial task for chapter '1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 1: Introduction' created.",
-                                "instruct_content": {
-                                    "class": "InitialTask",
-                                    "module": "metagpt_doc_writer.schemas.doc_structures",
-                                    "value": {
-                                        "chapter_title": "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 1: Introduction"
-                                    }
-                                },
-                                "role": "Task Dispatcher",
-                                "cause_by": "metagpt_doc_writer.roles.task_dispatcher.GenerateInitialTask",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            },
-                            {
-                                "id": "fd1147de34ec4aeb8a890ef1031e281b",
-                                "content": "All initial tasks for module '1. Research and Analysis of 'write a simple search-based report on MCP'' have been dispatched.",
-                                "instruct_content": null,
-                                "role": "Task Dispatcher",
-                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                                "sent_from": "",
-                                "send_to": [
-                                    "<all>"
-                                ]
-                            }
-                        ],
-                        "index": {
-                            "metagpt_doc_writer.roles.chief_pm.DecomposeTopic": [
-                                {
-                                    "id": "5b7c249a9b5f40c59516ae3b64dc0b8b",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ProjectPlan",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "modules": [
-                                                "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                                "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                                "3. Review and Refinement of 'write a simple search-based report on MCP'"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Chief Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.chief_pm.DecomposeTopic",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                }
-                            ],
-                            "metagpt_doc_writer.roles.group_pm.CreateModuleOutline": [
-                                {
-                                    "id": "2666483994c64341957cb6927ad349e2",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ModuleOutline",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "module_title": "1. Research and Analysis of 'write a simple search-based report on MCP'",
-                                            "chapters": [
-                                                "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                                "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Group Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                },
-                                {
-                                    "id": "0431a6c65a684f17a4e821b785d1b073",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ModuleOutline",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "module_title": "2. Drafting Initial Content for 'write a simple search-based report on MCP'",
-                                            "chapters": [
-                                                "2. Drafting Initial Content for 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                                "2. Drafting Initial Content for 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Group Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                },
-                                {
-                                    "id": "07fa610c60514461887c9b190da4a6ad",
-                                    "content": "write a simple search-based report on MCP",
-                                    "instruct_content": {
-                                        "class": "ModuleOutline",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "module_title": "3. Review and Refinement of 'write a simple search-based report on MCP'",
-                                            "chapters": [
-                                                "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 1: Introduction",
-                                                "3. Review and Refinement of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                                            ]
-                                        }
-                                    },
-                                    "role": "Group Product Manager",
-                                    "cause_by": "metagpt_doc_writer.roles.group_pm.CreateModuleOutline",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                }
-                            ],
-                            "metagpt.actions.add_requirement.UserRequirement": [
-                                {
-                                    "id": "bd639ccb088a40b080a81f57ec308e69",
-                                    "content": "All module outlines for 'write a simple search-based report on MCP' have been created.",
-                                    "instruct_content": null,
-                                    "role": "Group Product Manager",
-                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                },
-                                {
-                                    "id": "fd1147de34ec4aeb8a890ef1031e281b",
-                                    "content": "All initial tasks for module '1. Research and Analysis of 'write a simple search-based report on MCP'' have been dispatched.",
-                                    "instruct_content": null,
-                                    "role": "Task Dispatcher",
-                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                }
-                            ],
-                            "metagpt_doc_writer.roles.task_dispatcher.GenerateInitialTask": [
-                                {
-                                    "id": "415f841d35114481bc85ab87824a7b9b",
-                                    "content": "Initial task for chapter '1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 1: Introduction' created.",
-                                    "instruct_content": {
-                                        "class": "InitialTask",
-                                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                                        "value": {
-                                            "chapter_title": "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 1: Introduction"
-                                        }
-                                    },
-                                    "role": "Task Dispatcher",
-                                    "cause_by": "metagpt_doc_writer.roles.task_dispatcher.GenerateInitialTask",
-                                    "sent_from": "",
-                                    "send_to": [
-                                        "<all>"
-                                    ]
-                                }
-                            ]
-                        },
-                        "ignore_id": false
-                    },
-                    "working_memory": {
-                        "storage": [],
-                        "index": {},
-                        "ignore_id": false
-                    },
-                    "state": 0,
-                    "watch": [
-                        "metagpt_doc_writer.roles.task_dispatcher.GenerateInitialTask"
-                    ],
-                    "react_mode": "react",
-                    "max_react_loop": 1
-                },
-                "addresses": [
-                    "metagpt_doc_writer.roles.task_refiner.TaskRefiner",
-                    "TaskRefiner"
-                ],
-                "planner": {
-                    "plan": {
-                        "goal": "",
-                        "context": "",
-                        "tasks": [],
-                        "task_map": {},
-                        "current_task_id": ""
-                    },
-                    "working_memory": {
-                        "storage": [],
-                        "index": {},
-                        "ignore_id": false
-                    },
-                    "auto_run": false
-                },
-                "recovered": false,
-                "latest_observed_msg": {
-                    "id": "1e15770f344145cead3c434823fe0f7a",
-                    "content": "Initial task for chapter '1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts' created.",
-                    "instruct_content": {
-                        "class": "InitialTask",
-                        "module": "metagpt_doc_writer.schemas.doc_structures",
-                        "value": {
-                            "chapter_title": "1. Research and Analysis of 'write a simple search-based report on MCP' - Chapter 2: Core Concepts"
-                        }
-                    },
-                    "role": "Task Dispatcher",
-                    "cause_by": "metagpt_doc_writer.roles.task_dispatcher.GenerateInitialTask",
-                    "sent_from": "",
-                    "send_to": [
-                        "<all>"
-                    ]
-                },
-                "__module_class_name": "metagpt_doc_writer.roles.task_refiner.TaskRefiner"
-            },
-            "Technical Writer": {
-                "name": "TechnicalWriter",
-                "profile": "Technical Writer",
-                "goal": "Write high-quality, clear, and accurate technical documentation sections.",
-                "constraints": "",
-                "desc": "",
-                "is_human": false,
-                "role_id": "",
-                "states": [
-                    "0. WriteSection"
-                ],
-                "actions": [
-                    {
-                        "name": "WriteSection",
-                        "i_context": "",
-                        "prefix": "You are a Technical Writer, named TechnicalWriter, your goal is Write high-quality, clear, and accurate technical documentation sections.. ",
-                        "desc": "",
-                        "mcp_manager": 
+                "latest_observed_msg": null,
+                "observe_all_msg_from_buffer": false,
+                "action_classes": {
+                    "RESEARCH": 

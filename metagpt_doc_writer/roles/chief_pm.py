@@ -1,9 +1,11 @@
-# /root/metagpt/mgfr/metagpt_doc_writer/roles/chief_pm.py (修正版)
+# /root/metagpt/mgfr/metagpt_doc_writer/roles/chief_pm.py
 
 from .base_role import DocWriterBaseRole
 from metagpt.schema import Message
+from metagpt.actions.add_requirement import UserRequirement
+# 【核心修正】导入RoleReactMode枚举
+from metagpt.roles.role import RoleReactMode
 from metagpt_doc_writer.actions.create_plan import CreatePlan
-# 修正：移除对 CustomUserRequirement 的导入，因为它不存在
 from metagpt_doc_writer.schemas.doc_structures import Plan
 from metagpt.logs import logger
 
@@ -14,19 +16,21 @@ class ChiefPM(DocWriterBaseRole):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # set_actions 会自动处理 context 和 llm 的注入
         self.set_actions([CreatePlan()])
-
-    # run方法现在是它的主要入口，而不是_act
+        
+    # ChiefPM的角色非常简单，甚至不需要复杂的react_mode，
+    # 但为了规范，我们保留一个简单的模式。
+    # run方法是其主要入口。
     async def run(self, user_req_msg: Message) -> Message:
         logger.info(f"{self.name} is creating a plan from user requirement...")
         
-        # 直接从消息内容获取目标
         goal = user_req_msg.content
         if not goal:
             logger.error("User requirement message has no content. Aborting plan creation.")
-            # 返回一个表示错误的消息或None
             return Message(content="Error: Empty user requirement.")
 
+        # self.actions[0] 就是CreatePlan的实例
         plan: Plan = await self.actions[0].run(goal=goal)
         
         return Message(
