@@ -15,7 +15,6 @@ from metagpt.config2 import Config
 from metagpt.logs import logger
 from metagpt.team import Team
 from metagpt.schema import Message
-# --- 导入我们自定义的Context和核心Schema ---
 from hierarchical.context import HierarchicalContext
 from hierarchical.schemas import Outline
 
@@ -32,16 +31,13 @@ def assemble_final_document(outline: Outline) -> str:
     """Recursively assembles the final document from the outline."""
     if not outline:
         return "# Error: Outline object was not found or is empty."
-        
     content_parts = []
-    
     def recurse_assemble(sections, current_level):
         sorted_sections = sorted(sections, key=lambda s: s.display_id)
         for section in sorted_sections:
             content_parts.append(section.content)
             if section.sub_sections:
                 recurse_assemble(section.sub_sections, current_level + 1)
-
     content_parts.append(f"# {outline.goal}")
     recurse_assemble(outline.root_sections, 1)
     return "\n\n".join(content_parts)
@@ -50,10 +46,9 @@ async def main(idea: str):
     logger.info(f"--- 启动新架构文档生成任务 ---")
     logger.info(f"目标: {idea}")
 
-    # 1. 加载配置
     config_path = Path("/root/.metagpt/config2.yaml")
     if not config_path.is_file():
-        logger.error(f"配置文件未找到或不是一个文件，请检查路径: {config_path}")
+        logger.error(f"配置文件未找到: {config_path}")
         return
 
     logger.info(f"正在从 {config_path} 加载配置...")
@@ -65,13 +60,11 @@ async def main(idea: str):
     if custom_config:
         ctx.kwargs.custom_config = custom_config
     
-    # 2. 创建并存储不可序列化的对象
     hierarchical_config = custom_config.get("hierarchical_doc_writer", {}) if custom_config else {}
     semaphore_limit = hierarchical_config.get("strong_model_semaphore_limit", 2)
     ctx.semaphore = asyncio.Semaphore(semaphore_limit)
     ctx.outline = Outline(goal=idea)
 
-    # 3. 初始化Team
     team = Team(context=ctx, use_mgx=False)
     team.hire([
         ChiefPM(),
@@ -79,12 +72,10 @@ async def main(idea: str):
         Executor()
     ])
 
-    # 4. 启动项目和执行循环
     logger.info("使用 team.run(idea=...) 启动项目...")
-    # 增加轮次，给角色们足够的时间来回传递消息
-    await team.run(idea=idea, n_round=10)
+    # 增加轮次以支持多层迭代
+    await team.run(idea=idea, n_round=20)
 
-    # 5. 结束后，组装并保存最终文档
     logger.info("--- 流程结束，正在组装最终文档 ---")
     final_outline = ctx.outline
     final_doc_content = assemble_final_document(final_outline)
@@ -95,7 +86,7 @@ async def main(idea: str):
     doc_path.write_text(final_doc_content, encoding='utf-8')
     
     logger.success(f"最终文档已生成: {doc_path}")
-    print(f"\n最终文档内容预览:\n---\n{final_doc_content}\n---")
+    print(f"\n--- 最终文档已在 {doc_path} 生成 ---")
 
 
 if __name__ == "__main__":

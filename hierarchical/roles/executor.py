@@ -1,3 +1,4 @@
+
 # hierarchical/roles/executor.py
 import asyncio
 import sys
@@ -11,15 +12,17 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(METAGPT_ROOT))
 # -----------------
 
+from metagpt.actions import Action
 from metagpt.schema import Message
 from metagpt.logs import logger
 from hierarchical.roles.base_role import HierarchicalBaseRole
 from hierarchical.schemas import Outline, Section, SectionBatch
+from hierarchical.actions.write_section import WriteSection
 
 class Executor(HierarchicalBaseRole):
     """
     Executor Role.
-    Receives a batch of sections and processes them in parallel.
+    Receives a batch of sections and processes them in parallel using real Actions.
     """
     name: str = "Executor"
     profile: str = "Task Executor"
@@ -27,50 +30,55 @@ class Executor(HierarchicalBaseRole):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([])
+        self.set_actions([WriteSection()])
         self._watch(["hierarchical.roles.scheduler.Scheduler"])
 
-    async def _process_section_workflow(self, section: Section) -> Tuple[str, str]:
-        """Mocks the Write-Review-Revise workflow for a single section."""
-        logger.info(f"  -> Starting workflow for '{section.title}'...")
-        await asyncio.sleep(1) # Simulate work
-        final_content = f"## {section.display_id} {section.title}\n\nThis is the final, mocked content for this section."
-        logger.info(f"  <- Finished workflow for '{section.title}'.")
-        return (section.section_id, final_content)
+    def _get_action(self, action_class: type) -> Action:
+        return next((a for a in self.actions if isinstance(a, action_class)), None)
 
+    async def _process_section_workflow(self, section: Section) -> Tuple[str, str]:
+        logger.info(f"  -> Starting REAL workflow for '{section.title}'...")
+        
+        semaphore = self.context.semaphore
+        outline: Outline = self.context.outline
+        
+        async with semaphore:
+            logger.success(f"   - Semaphore acquired for '{section.title}'. Starting LLM call.")
+            
+            write_action = self._get_action(WriteSection)
+            if not write_action:
+                logger.error("WriteSection action not found!")
+                return (section.section_id, "Error: WriteSection action not found.")
+            
+            draft = await write_action.run(section=section, goal=outline.goal)
+            final_content = f"## {section.display_id} {section.title}\n\n{draft}"
+
+        logger.info(f"  <- Finished workflow for '{section.title}'. Semaphore released.")
+        return (section.section_id, final_content)
 
     async def _act(self) -> Message:
         logger.info(f"--- {self.name} is acting... ---")
         
-        # --- 【核心修正】采纳官方建议，从 self.rc.news 获取消息 ---
         if not self.rc.news:
-             logger.warning("Executor was triggered but has no new messages in rc.news. Skipping.")
+             logger.warning("Executor has no new messages. Skipping.")
              return None
-        
-        # 通常，触发行动的是 news 列表中的最新消息
-        latest_msg = self.rc.news[-1]
              
-        # 解包 SectionBatch 对象
+        latest_msg = self.rc.news[-1]
         batch = latest_msg.instruct_content
         if not isinstance(batch, SectionBatch):
-            logger.warning(f"Executor received a message, but instruct_content is not a SectionBatch. Got {type(batch)}. Ignoring.")
+            logger.warning(f"Executor received non-SectionBatch message. Ignoring.")
             return None
             
         sections_to_process: List[Section] = batch.sections
-
         if not sections_to_process:
-            logger.info("Executor received an empty batch of sections. Nothing to do.")
-            return Message(
-                content="Completed processing empty batch.",
-                role=self.profile,
-                send_to="Scheduler"
-            )
+            logger.info("Executor received an empty batch. Nothing to do.")
+            return Message(content="Completed empty batch.", role=self.profile, send_to="Scheduler")
 
         logger.info(f"Received {len(sections_to_process)} sections to process in parallel.")
-
         coroutines = [self._process_section_workflow(sec) for sec in sections_to_process]
         results = await asyncio.gather(*coroutines)
 
+        # --- 【核心修正】在使用 outline 前，先从 context 中获取它 ---
         if not hasattr(self.context, 'outline') or not self.context.outline:
              logger.error("Outline not found in context. Cannot update results.")
              return None
@@ -83,10 +91,4 @@ class Executor(HierarchicalBaseRole):
                 target_section.status = "COMPLETED"
         
         logger.success(f"Successfully processed {len(results)} sections.")
-
-        # Notify the Scheduler that this batch is done
-        return Message(
-            content=f"Completed processing batch of {len(results)} sections.",
-            role=self.profile,
-            send_to="Scheduler"
-        )
+        return Message(content=f"Completed batch of {len(results)} sections.", role=self.profile, send_to="Scheduler")

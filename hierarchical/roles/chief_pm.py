@@ -28,45 +28,44 @@ class ChiefPM(HierarchicalBaseRole):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_actions([CreateSubOutline])
-        self._watch([UserRequirement]) 
+        self._watch([UserRequirement])
+        self.plan_created = False
 
     async def _act(self) -> Message:
         logger.info(f"--- {self.name} is acting... ---")
-        
-        messages = self.get_memories()
-        if not messages:
-            logger.warning(f"{self.name} has no messages in memory. Skipping.")
-            return None
-        
-        latest_msg = messages[-1]
-        
-        # --- 【核心修正】采纳官方建议，使用更健壮的字符串检查 ---
-        # 添加详细的调试日志
-        cause_by_val = getattr(latest_msg, 'cause_by', None)
-        logger.debug(f"ChiefPM received message with cause_by: {cause_by_val} (type: {type(cause_by_val)})")
 
-        # 将 cause_by 转换为字符串进行检查，这样更可靠
-        cause_by_str = str(cause_by_val)
-        if "UserRequirement" not in cause_by_str:
-            logger.warning(f"Latest message for {self.name} was not caused by 'UserRequirement'. Skipping. (cause_by was: '{cause_by_str}')")
+        if self.plan_created:
+            logger.info(f"{self.name} has already created the plan. Idling.")
             return None
 
-        # 从自定义的 context 中获取全局唯一的 Outline 对象
+        # --- 【核心修正】从记忆中获取最新的消息，而不是依赖 rc.todo ---
+        latest_msg = self.get_memories(k=1)[0] if self.get_memories(k=1) else None
+        
+        # 检查最新消息的起因是否是 UserRequirement
+        cause_by_str = str(getattr(latest_msg, 'cause_by', None))
+        if not latest_msg or "UserRequirement" not in cause_by_str:
+            logger.warning(f"ChiefPM was triggered, but latest message in memory was not from UserRequirement. Skipping.")
+            return None
+
         if not hasattr(self.context, 'outline') or not self.context.outline:
             logger.error("Outline object not found in context. Aborting.")
             return Message(content="Error: Outline not initialized.", role=self.profile)
         outline: Outline = self.context.outline
         
+        # self.rc.todo 此时是框架决定要执行的 Action
         create_outline_action = self.rc.todo
         if not isinstance(create_outline_action, CreateSubOutline):
-             logger.error(f"Expected CreateSubOutline action, but got {type(create_outline_action)}. Aborting.")
+             logger.error(f"Expected CreateSubOutline action in rc.todo, but got {type(create_outline_action)}. Aborting.")
              return None
-
-        top_level_sections = await create_outline_action.run(parent_section=None)
+        
+        # 传递 goal 给 action
+        top_level_sections = await create_outline_action.run(parent_section=None, goal=outline.goal)
 
         outline.root_sections = top_level_sections
         logger.info(f"Initial outline created with {len(top_level_sections)} top-level sections.")
 
+        self.plan_created = True
+        
         return Message(
             content="Initial outline created, ready for scheduling.",
             instruct_content=outline,

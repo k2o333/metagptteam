@@ -28,7 +28,7 @@
                     "memory": {
                         "storage": [
                             {
-                                "id": "af0f5311d0f64009bed0afa5978ff793",
+                                "id": "19e1b8b795cf47cab07f146a45d92946",
                                 "content": "人工智能在教育领域的应用",
                                 "instruct_content": null,
                                 "role": "user",
@@ -43,7 +43,7 @@
                         "index": {
                             "metagpt.actions.add_requirement.UserRequirement": [
                                 {
-                                    "id": "af0f5311d0f64009bed0afa5978ff793",
+                                    "id": "19e1b8b795cf47cab07f146a45d92946",
                                     "content": "人工智能在教育领域的应用",
                                     "instruct_content": null,
                                     "role": "user",
@@ -92,24 +92,36 @@
                 "recovered": false,
                 "latest_observed_msg": null,
                 "observe_all_msg_from_buffer": false,
+                "plan_created": true,
                 "__module_class_name": "hierarchical.roles.chief_pm.ChiefPM"
             },
             "Scheduler": {
                 "name": "Scheduler",
                 "profile": "Task Scheduler",
-                "goal": "Manage the document generation lifecycle by dispatching tasks.",
+                "goal": "Manage the document generation lifecycle by dispatching tasks and deciding when to deepen sections.",
                 "constraints": "",
                 "desc": "",
                 "is_human": false,
                 "enable_memory": true,
                 "role_id": "",
-                "states": [],
-                "actions": [],
+                "states": [
+                    "0. CreateSubOutline"
+                ],
+                "actions": [
+                    {
+                        "name": "CreateSubOutline",
+                        "i_context": "",
+                        "prefix": "You are a Task Scheduler, named Scheduler, your goal is Manage the document generation lifecycle by dispatching tasks and deciding when to deepen sections.. ",
+                        "desc": "",
+                        "llm_name_or_type": null,
+                        "__module_class_name": "hierarchical.actions.create_sub_outline.CreateSubOutline"
+                    }
+                ],
                 "rc": {
                     "memory": {
                         "storage": [
                             {
-                                "id": "b5fff946c8ba4143a18f0c81b2f2d749",
+                                "id": "079ea9131f674939a5333150dbcbba60",
                                 "content": "Initial outline created, ready for scheduling.",
                                 "instruct_content": {
                                     "class": "Outline",
@@ -118,37 +130,26 @@
                                         "goal": "人工智能在教育领域的应用",
                                         "root_sections": [
                                             {
-                                                "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                                "section_id": "a68c2f5954764ff49a9a8ed27ed21cfd",
                                                 "display_id": "1",
-                                                "title": "1. Introduction",
+                                                "title": "Default Section 1 (Parsing Error)",
                                                 "level": 1,
                                                 "content": "",
                                                 "status": "WRITING",
                                                 "parent_id": null,
                                                 "sub_sections": [],
-                                                "last_modified": "2025-07-19T20:24:15.533227"
+                                                "last_modified": "2025-07-19T23:15:21.715189"
                                             },
                                             {
-                                                "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                                "section_id": "0900f7b655b14e23953e117f931c9727",
                                                 "display_id": "2",
-                                                "title": "2. Core Concepts",
+                                                "title": "Default Section 2",
                                                 "level": 1,
                                                 "content": "",
                                                 "status": "WRITING",
                                                 "parent_id": null,
                                                 "sub_sections": [],
-                                                "last_modified": "2025-07-19T20:24:15.533258"
-                                            },
-                                            {
-                                                "section_id": "f816141ff3cf4f92a677f50dd5751742",
-                                                "display_id": "3",
-                                                "title": "3. Conclusion",
-                                                "level": 1,
-                                                "content": "",
-                                                "status": "WRITING",
-                                                "parent_id": null,
-                                                "sub_sections": [],
-                                                "last_modified": "2025-07-19T20:24:15.533276"
+                                                "last_modified": "2025-07-19T23:15:21.715227"
                                             }
                                         ]
                                     }
@@ -165,7 +166,7 @@
                         "index": {
                             "metagpt.actions.add_requirement.UserRequirement": [
                                 {
-                                    "id": "b5fff946c8ba4143a18f0c81b2f2d749",
+                                    "id": "079ea9131f674939a5333150dbcbba60",
                                     "content": "Initial outline created, ready for scheduling.",
                                     "instruct_content": {
                                         "class": "Outline",
@@ -174,37 +175,26 @@
                                             "goal": "人工智能在教育领域的应用",
                                             "root_sections": [
                                                 {
-                                                    "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                                    "section_id": "a68c2f5954764ff49a9a8ed27ed21cfd",
                                                     "display_id": "1",
-                                                    "title": "1. Introduction",
+                                                    "title": "Default Section 1 (Parsing Error)",
                                                     "level": 1,
                                                     "content": "",
                                                     "status": "WRITING",
                                                     "parent_id": null,
                                                     "sub_sections": [],
-                                                    "last_modified": "2025-07-19T20:24:15.533227"
+                                                    "last_modified": "2025-07-19T23:15:21.715189"
                                                 },
                                                 {
-                                                    "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                                    "section_id": "0900f7b655b14e23953e117f931c9727",
                                                     "display_id": "2",
-                                                    "title": "2. Core Concepts",
+                                                    "title": "Default Section 2",
                                                     "level": 1,
                                                     "content": "",
                                                     "status": "WRITING",
                                                     "parent_id": null,
                                                     "sub_sections": [],
-                                                    "last_modified": "2025-07-19T20:24:15.533258"
-                                                },
-                                                {
-                                                    "section_id": "f816141ff3cf4f92a677f50dd5751742",
-                                                    "display_id": "3",
-                                                    "title": "3. Conclusion",
-                                                    "level": 1,
-                                                    "content": "",
-                                                    "status": "WRITING",
-                                                    "parent_id": null,
-                                                    "sub_sections": [],
-                                                    "last_modified": "2025-07-19T20:24:15.533276"
+                                                    "last_modified": "2025-07-19T23:15:21.715227"
                                                 }
                                             ]
                                         }
@@ -267,8 +257,19 @@
                 "is_human": false,
                 "enable_memory": true,
                 "role_id": "",
-                "states": [],
-                "actions": [],
+                "states": [
+                    "0. WriteSection"
+                ],
+                "actions": [
+                    {
+                        "name": "WriteSection",
+                        "i_context": "",
+                        "prefix": "You are a Task Executor, named Executor, your goal is Write, review, and revise document sections efficiently.. ",
+                        "desc": "",
+                        "llm_name_or_type": null,
+                        "__module_class_name": "hierarchical.actions.write_section.WriteSection"
+                    }
+                ],
                 "rc": {
                     "memory": {
                         "storage": [],
@@ -282,7 +283,7 @@
                         "index": {},
                         "ignore_id": false
                     },
-                    "state": -1,
+                    "state": 0,
                     "watch": [
                         "hierarchical.roles.scheduler.Scheduler"
                     ],
@@ -290,8 +291,8 @@
                     "max_react_loop": 1
                 },
                 "addresses": [
-                    "Executor",
-                    "hierarchical.roles.executor.Executor"
+                    "hierarchical.roles.executor.Executor",
+                    "Executor"
                 ],
                 "planner": {
                     "plan": {
@@ -310,45 +311,34 @@
                 },
                 "recovered": false,
                 "latest_observed_msg": {
-                    "id": "d5e870b462fb475a9c5af48e71207d59",
-                    "content": "Dispatching batch of 3 sections for writing.",
+                    "id": "7208b86fe9b24aa4a44265dd36ab08f6",
+                    "content": "Dispatching batch of 2 sections.",
                     "instruct_content": {
                         "class": "SectionBatch",
                         "module": "hierarchical.schemas",
                         "value": {
                             "sections": [
                                 {
-                                    "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                    "section_id": "a68c2f5954764ff49a9a8ed27ed21cfd",
                                     "display_id": "1",
-                                    "title": "1. Introduction",
+                                    "title": "Default Section 1 (Parsing Error)",
                                     "level": 1,
                                     "content": "",
                                     "status": "WRITING",
                                     "parent_id": null,
                                     "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533227"
+                                    "last_modified": "2025-07-19T23:15:21.715189"
                                 },
                                 {
-                                    "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                    "section_id": "0900f7b655b14e23953e117f931c9727",
                                     "display_id": "2",
-                                    "title": "2. Core Concepts",
+                                    "title": "Default Section 2",
                                     "level": 1,
                                     "content": "",
                                     "status": "WRITING",
                                     "parent_id": null,
                                     "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533258"
-                                },
-                                {
-                                    "section_id": "f816141ff3cf4f92a677f50dd5751742",
-                                    "display_id": "3",
-                                    "title": "3. Conclusion",
-                                    "level": 1,
-                                    "content": "",
-                                    "status": "WRITING",
-                                    "parent_id": null,
-                                    "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533276"
+                                    "last_modified": "2025-07-19T23:15:21.715227"
                                 }
                             ]
                         }
@@ -368,7 +358,7 @@
         "history": {
             "storage": [
                 {
-                    "id": "af0f5311d0f64009bed0afa5978ff793",
+                    "id": "19e1b8b795cf47cab07f146a45d92946",
                     "content": "人工智能在教育领域的应用",
                     "instruct_content": null,
                     "role": "user",
@@ -380,7 +370,7 @@
                     "metadata": {}
                 },
                 {
-                    "id": "b5fff946c8ba4143a18f0c81b2f2d749",
+                    "id": "079ea9131f674939a5333150dbcbba60",
                     "content": "Initial outline created, ready for scheduling.",
                     "instruct_content": {
                         "class": "Outline",
@@ -389,37 +379,26 @@
                             "goal": "人工智能在教育领域的应用",
                             "root_sections": [
                                 {
-                                    "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                    "section_id": "a68c2f5954764ff49a9a8ed27ed21cfd",
                                     "display_id": "1",
-                                    "title": "1. Introduction",
+                                    "title": "Default Section 1 (Parsing Error)",
                                     "level": 1,
                                     "content": "",
                                     "status": "WRITING",
                                     "parent_id": null,
                                     "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533227"
+                                    "last_modified": "2025-07-19T23:15:21.715189"
                                 },
                                 {
-                                    "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                    "section_id": "0900f7b655b14e23953e117f931c9727",
                                     "display_id": "2",
-                                    "title": "2. Core Concepts",
+                                    "title": "Default Section 2",
                                     "level": 1,
                                     "content": "",
                                     "status": "WRITING",
                                     "parent_id": null,
                                     "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533258"
-                                },
-                                {
-                                    "section_id": "f816141ff3cf4f92a677f50dd5751742",
-                                    "display_id": "3",
-                                    "title": "3. Conclusion",
-                                    "level": 1,
-                                    "content": "",
-                                    "status": "WRITING",
-                                    "parent_id": null,
-                                    "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533276"
+                                    "last_modified": "2025-07-19T23:15:21.715227"
                                 }
                             ]
                         }
@@ -433,45 +412,34 @@
                     "metadata": {}
                 },
                 {
-                    "id": "d5e870b462fb475a9c5af48e71207d59",
-                    "content": "Dispatching batch of 3 sections for writing.",
+                    "id": "7208b86fe9b24aa4a44265dd36ab08f6",
+                    "content": "Dispatching batch of 2 sections.",
                     "instruct_content": {
                         "class": "SectionBatch",
                         "module": "hierarchical.schemas",
                         "value": {
                             "sections": [
                                 {
-                                    "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                    "section_id": "a68c2f5954764ff49a9a8ed27ed21cfd",
                                     "display_id": "1",
-                                    "title": "1. Introduction",
+                                    "title": "Default Section 1 (Parsing Error)",
                                     "level": 1,
                                     "content": "",
                                     "status": "WRITING",
                                     "parent_id": null,
                                     "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533227"
+                                    "last_modified": "2025-07-19T23:15:21.715189"
                                 },
                                 {
-                                    "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                    "section_id": "0900f7b655b14e23953e117f931c9727",
                                     "display_id": "2",
-                                    "title": "2. Core Concepts",
+                                    "title": "Default Section 2",
                                     "level": 1,
                                     "content": "",
                                     "status": "WRITING",
                                     "parent_id": null,
                                     "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533258"
-                                },
-                                {
-                                    "section_id": "f816141ff3cf4f92a677f50dd5751742",
-                                    "display_id": "3",
-                                    "title": "3. Conclusion",
-                                    "level": 1,
-                                    "content": "",
-                                    "status": "WRITING",
-                                    "parent_id": null,
-                                    "sub_sections": [],
-                                    "last_modified": "2025-07-19T20:24:15.533276"
+                                    "last_modified": "2025-07-19T23:15:21.715227"
                                 }
                             ]
                         }
@@ -488,7 +456,7 @@
             "index": {
                 "metagpt.actions.add_requirement.UserRequirement": [
                     {
-                        "id": "af0f5311d0f64009bed0afa5978ff793",
+                        "id": "19e1b8b795cf47cab07f146a45d92946",
                         "content": "人工智能在教育领域的应用",
                         "instruct_content": null,
                         "role": "user",
@@ -500,7 +468,7 @@
                         "metadata": {}
                     },
                     {
-                        "id": "b5fff946c8ba4143a18f0c81b2f2d749",
+                        "id": "079ea9131f674939a5333150dbcbba60",
                         "content": "Initial outline created, ready for scheduling.",
                         "instruct_content": {
                             "class": "Outline",
@@ -509,37 +477,26 @@
                                 "goal": "人工智能在教育领域的应用",
                                 "root_sections": [
                                     {
-                                        "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                        "section_id": "a68c2f5954764ff49a9a8ed27ed21cfd",
                                         "display_id": "1",
-                                        "title": "1. Introduction",
+                                        "title": "Default Section 1 (Parsing Error)",
                                         "level": 1,
                                         "content": "",
                                         "status": "WRITING",
                                         "parent_id": null,
                                         "sub_sections": [],
-                                        "last_modified": "2025-07-19T20:24:15.533227"
+                                        "last_modified": "2025-07-19T23:15:21.715189"
                                     },
                                     {
-                                        "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                        "section_id": "0900f7b655b14e23953e117f931c9727",
                                         "display_id": "2",
-                                        "title": "2. Core Concepts",
+                                        "title": "Default Section 2",
                                         "level": 1,
                                         "content": "",
                                         "status": "WRITING",
                                         "parent_id": null,
                                         "sub_sections": [],
-                                        "last_modified": "2025-07-19T20:24:15.533258"
-                                    },
-                                    {
-                                        "section_id": "f816141ff3cf4f92a677f50dd5751742",
-                                        "display_id": "3",
-                                        "title": "3. Conclusion",
-                                        "level": 1,
-                                        "content": "",
-                                        "status": "WRITING",
-                                        "parent_id": null,
-                                        "sub_sections": [],
-                                        "last_modified": "2025-07-19T20:24:15.533276"
+                                        "last_modified": "2025-07-19T23:15:21.715227"
                                     }
                                 ]
                             }
@@ -553,45 +510,34 @@
                         "metadata": {}
                     },
                     {
-                        "id": "d5e870b462fb475a9c5af48e71207d59",
-                        "content": "Dispatching batch of 3 sections for writing.",
+                        "id": "7208b86fe9b24aa4a44265dd36ab08f6",
+                        "content": "Dispatching batch of 2 sections.",
                         "instruct_content": {
                             "class": "SectionBatch",
                             "module": "hierarchical.schemas",
                             "value": {
                                 "sections": [
                                     {
-                                        "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                        "section_id": "a68c2f5954764ff49a9a8ed27ed21cfd",
                                         "display_id": "1",
-                                        "title": "1. Introduction",
+                                        "title": "Default Section 1 (Parsing Error)",
                                         "level": 1,
                                         "content": "",
                                         "status": "WRITING",
                                         "parent_id": null,
                                         "sub_sections": [],
-                                        "last_modified": "2025-07-19T20:24:15.533227"
+                                        "last_modified": "2025-07-19T23:15:21.715189"
                                     },
                                     {
-                                        "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                        "section_id": "0900f7b655b14e23953e117f931c9727",
                                         "display_id": "2",
-                                        "title": "2. Core Concepts",
+                                        "title": "Default Section 2",
                                         "level": 1,
                                         "content": "",
                                         "status": "WRITING",
                                         "parent_id": null,
                                         "sub_sections": [],
-                                        "last_modified": "2025-07-19T20:24:15.533258"
-                                    },
-                                    {
-                                        "section_id": "f816141ff3cf4f92a677f50dd5751742",
-                                        "display_id": "3",
-                                        "title": "3. Conclusion",
-                                        "level": 1,
-                                        "content": "",
-                                        "status": "WRITING",
-                                        "parent_id": null,
-                                        "sub_sections": [],
-                                        "last_modified": "2025-07-19T20:24:15.533276"
+                                        "last_modified": "2025-07-19T23:15:21.715227"
                                     }
                                 ]
                             }
@@ -667,7 +613,7 @@
                     ]
                 },
                 "hierarchical_doc_writer": {
-                    "max_depth": 5
+                    "max_depth": 2
                 },
                 "human_in_loop": false,
                 "project_path": "/root/metagpt/mgfr/workspace",
