@@ -1,0 +1,679 @@
+{
+    "env": {
+        "desc": "",
+        "roles": {
+            "ChiefPM": {
+                "name": "ChiefPM",
+                "profile": "Chief Product Manager",
+                "goal": "Create the initial high-level structure of the document.",
+                "constraints": "",
+                "desc": "",
+                "is_human": false,
+                "enable_memory": true,
+                "role_id": "",
+                "states": [
+                    "0. CreateSubOutline"
+                ],
+                "actions": [
+                    {
+                        "name": "CreateSubOutline",
+                        "i_context": "",
+                        "prefix": "You are a Chief Product Manager, named ChiefPM, your goal is Create the initial high-level structure of the document.. ",
+                        "desc": "",
+                        "llm_name_or_type": null,
+                        "__module_class_name": "hierarchical.actions.create_sub_outline.CreateSubOutline"
+                    }
+                ],
+                "rc": {
+                    "memory": {
+                        "storage": [
+                            {
+                                "id": "af0f5311d0f64009bed0afa5978ff793",
+                                "content": "人工智能在教育领域的应用",
+                                "instruct_content": null,
+                                "role": "user",
+                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                "sent_from": "",
+                                "send_to": [
+                                    "<all>"
+                                ],
+                                "metadata": {}
+                            }
+                        ],
+                        "index": {
+                            "metagpt.actions.add_requirement.UserRequirement": [
+                                {
+                                    "id": "af0f5311d0f64009bed0afa5978ff793",
+                                    "content": "人工智能在教育领域的应用",
+                                    "instruct_content": null,
+                                    "role": "user",
+                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                    "sent_from": "",
+                                    "send_to": [
+                                        "<all>"
+                                    ],
+                                    "metadata": {}
+                                }
+                            ]
+                        },
+                        "ignore_id": false
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "state": -1,
+                    "watch": [
+                        "metagpt.actions.add_requirement.UserRequirement"
+                    ],
+                    "react_mode": "react",
+                    "max_react_loop": 1
+                },
+                "addresses": [
+                    "ChiefPM",
+                    "hierarchical.roles.chief_pm.ChiefPM"
+                ],
+                "planner": {
+                    "plan": {
+                        "goal": "",
+                        "context": "",
+                        "tasks": [],
+                        "task_map": {},
+                        "current_task_id": ""
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "auto_run": false
+                },
+                "recovered": false,
+                "latest_observed_msg": null,
+                "observe_all_msg_from_buffer": false,
+                "__module_class_name": "hierarchical.roles.chief_pm.ChiefPM"
+            },
+            "Scheduler": {
+                "name": "Scheduler",
+                "profile": "Task Scheduler",
+                "goal": "Manage the document generation lifecycle by dispatching tasks.",
+                "constraints": "",
+                "desc": "",
+                "is_human": false,
+                "enable_memory": true,
+                "role_id": "",
+                "states": [],
+                "actions": [],
+                "rc": {
+                    "memory": {
+                        "storage": [
+                            {
+                                "id": "b5fff946c8ba4143a18f0c81b2f2d749",
+                                "content": "Initial outline created, ready for scheduling.",
+                                "instruct_content": {
+                                    "class": "Outline",
+                                    "module": "hierarchical.schemas",
+                                    "value": {
+                                        "goal": "人工智能在教育领域的应用",
+                                        "root_sections": [
+                                            {
+                                                "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                                "display_id": "1",
+                                                "title": "1. Introduction",
+                                                "level": 1,
+                                                "content": "",
+                                                "status": "WRITING",
+                                                "parent_id": null,
+                                                "sub_sections": [],
+                                                "last_modified": "2025-07-19T20:24:15.533227"
+                                            },
+                                            {
+                                                "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                                "display_id": "2",
+                                                "title": "2. Core Concepts",
+                                                "level": 1,
+                                                "content": "",
+                                                "status": "WRITING",
+                                                "parent_id": null,
+                                                "sub_sections": [],
+                                                "last_modified": "2025-07-19T20:24:15.533258"
+                                            },
+                                            {
+                                                "section_id": "f816141ff3cf4f92a677f50dd5751742",
+                                                "display_id": "3",
+                                                "title": "3. Conclusion",
+                                                "level": 1,
+                                                "content": "",
+                                                "status": "WRITING",
+                                                "parent_id": null,
+                                                "sub_sections": [],
+                                                "last_modified": "2025-07-19T20:24:15.533276"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "role": "Chief Product Manager",
+                                "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                "sent_from": "hierarchical.roles.chief_pm.ChiefPM",
+                                "send_to": [
+                                    "Scheduler"
+                                ],
+                                "metadata": {}
+                            }
+                        ],
+                        "index": {
+                            "metagpt.actions.add_requirement.UserRequirement": [
+                                {
+                                    "id": "b5fff946c8ba4143a18f0c81b2f2d749",
+                                    "content": "Initial outline created, ready for scheduling.",
+                                    "instruct_content": {
+                                        "class": "Outline",
+                                        "module": "hierarchical.schemas",
+                                        "value": {
+                                            "goal": "人工智能在教育领域的应用",
+                                            "root_sections": [
+                                                {
+                                                    "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                                    "display_id": "1",
+                                                    "title": "1. Introduction",
+                                                    "level": 1,
+                                                    "content": "",
+                                                    "status": "WRITING",
+                                                    "parent_id": null,
+                                                    "sub_sections": [],
+                                                    "last_modified": "2025-07-19T20:24:15.533227"
+                                                },
+                                                {
+                                                    "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                                    "display_id": "2",
+                                                    "title": "2. Core Concepts",
+                                                    "level": 1,
+                                                    "content": "",
+                                                    "status": "WRITING",
+                                                    "parent_id": null,
+                                                    "sub_sections": [],
+                                                    "last_modified": "2025-07-19T20:24:15.533258"
+                                                },
+                                                {
+                                                    "section_id": "f816141ff3cf4f92a677f50dd5751742",
+                                                    "display_id": "3",
+                                                    "title": "3. Conclusion",
+                                                    "level": 1,
+                                                    "content": "",
+                                                    "status": "WRITING",
+                                                    "parent_id": null,
+                                                    "sub_sections": [],
+                                                    "last_modified": "2025-07-19T20:24:15.533276"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "role": "Chief Product Manager",
+                                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                                    "sent_from": "hierarchical.roles.chief_pm.ChiefPM",
+                                    "send_to": [
+                                        "Scheduler"
+                                    ],
+                                    "metadata": {}
+                                }
+                            ]
+                        },
+                        "ignore_id": false
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "state": -1,
+                    "watch": [
+                        "hierarchical.roles.executor.Executor",
+                        "hierarchical.roles.chief_pm.ChiefPM"
+                    ],
+                    "react_mode": "react",
+                    "max_react_loop": 1
+                },
+                "addresses": [
+                    "hierarchical.roles.scheduler.Scheduler",
+                    "Scheduler"
+                ],
+                "planner": {
+                    "plan": {
+                        "goal": "",
+                        "context": "",
+                        "tasks": [],
+                        "task_map": {},
+                        "current_task_id": ""
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "auto_run": false
+                },
+                "recovered": false,
+                "latest_observed_msg": null,
+                "observe_all_msg_from_buffer": false,
+                "__module_class_name": "hierarchical.roles.scheduler.Scheduler"
+            },
+            "Executor": {
+                "name": "Executor",
+                "profile": "Task Executor",
+                "goal": "Write, review, and revise document sections efficiently.",
+                "constraints": "",
+                "desc": "",
+                "is_human": false,
+                "enable_memory": true,
+                "role_id": "",
+                "states": [],
+                "actions": [],
+                "rc": {
+                    "memory": {
+                        "storage": [],
+                        "index": {
+                            "metagpt.actions.add_requirement.UserRequirement": []
+                        },
+                        "ignore_id": false
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "state": -1,
+                    "watch": [
+                        "hierarchical.roles.scheduler.Scheduler"
+                    ],
+                    "react_mode": "react",
+                    "max_react_loop": 1
+                },
+                "addresses": [
+                    "Executor",
+                    "hierarchical.roles.executor.Executor"
+                ],
+                "planner": {
+                    "plan": {
+                        "goal": "",
+                        "context": "",
+                        "tasks": [],
+                        "task_map": {},
+                        "current_task_id": ""
+                    },
+                    "working_memory": {
+                        "storage": [],
+                        "index": {},
+                        "ignore_id": false
+                    },
+                    "auto_run": false
+                },
+                "recovered": false,
+                "latest_observed_msg": {
+                    "id": "d5e870b462fb475a9c5af48e71207d59",
+                    "content": "Dispatching batch of 3 sections for writing.",
+                    "instruct_content": {
+                        "class": "SectionBatch",
+                        "module": "hierarchical.schemas",
+                        "value": {
+                            "sections": [
+                                {
+                                    "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                    "display_id": "1",
+                                    "title": "1. Introduction",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533227"
+                                },
+                                {
+                                    "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                    "display_id": "2",
+                                    "title": "2. Core Concepts",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533258"
+                                },
+                                {
+                                    "section_id": "f816141ff3cf4f92a677f50dd5751742",
+                                    "display_id": "3",
+                                    "title": "3. Conclusion",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533276"
+                                }
+                            ]
+                        }
+                    },
+                    "role": "Task Scheduler",
+                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                    "sent_from": "hierarchical.roles.scheduler.Scheduler",
+                    "send_to": [
+                        "Executor"
+                    ],
+                    "metadata": {}
+                },
+                "observe_all_msg_from_buffer": false,
+                "__module_class_name": "hierarchical.roles.executor.Executor"
+            }
+        },
+        "history": {
+            "storage": [
+                {
+                    "id": "af0f5311d0f64009bed0afa5978ff793",
+                    "content": "人工智能在教育领域的应用",
+                    "instruct_content": null,
+                    "role": "user",
+                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                    "sent_from": "",
+                    "send_to": [
+                        "<all>"
+                    ],
+                    "metadata": {}
+                },
+                {
+                    "id": "b5fff946c8ba4143a18f0c81b2f2d749",
+                    "content": "Initial outline created, ready for scheduling.",
+                    "instruct_content": {
+                        "class": "Outline",
+                        "module": "hierarchical.schemas",
+                        "value": {
+                            "goal": "人工智能在教育领域的应用",
+                            "root_sections": [
+                                {
+                                    "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                    "display_id": "1",
+                                    "title": "1. Introduction",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533227"
+                                },
+                                {
+                                    "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                    "display_id": "2",
+                                    "title": "2. Core Concepts",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533258"
+                                },
+                                {
+                                    "section_id": "f816141ff3cf4f92a677f50dd5751742",
+                                    "display_id": "3",
+                                    "title": "3. Conclusion",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533276"
+                                }
+                            ]
+                        }
+                    },
+                    "role": "Chief Product Manager",
+                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                    "sent_from": "hierarchical.roles.chief_pm.ChiefPM",
+                    "send_to": [
+                        "Scheduler"
+                    ],
+                    "metadata": {}
+                },
+                {
+                    "id": "d5e870b462fb475a9c5af48e71207d59",
+                    "content": "Dispatching batch of 3 sections for writing.",
+                    "instruct_content": {
+                        "class": "SectionBatch",
+                        "module": "hierarchical.schemas",
+                        "value": {
+                            "sections": [
+                                {
+                                    "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                    "display_id": "1",
+                                    "title": "1. Introduction",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533227"
+                                },
+                                {
+                                    "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                    "display_id": "2",
+                                    "title": "2. Core Concepts",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533258"
+                                },
+                                {
+                                    "section_id": "f816141ff3cf4f92a677f50dd5751742",
+                                    "display_id": "3",
+                                    "title": "3. Conclusion",
+                                    "level": 1,
+                                    "content": "",
+                                    "status": "WRITING",
+                                    "parent_id": null,
+                                    "sub_sections": [],
+                                    "last_modified": "2025-07-19T20:24:15.533276"
+                                }
+                            ]
+                        }
+                    },
+                    "role": "Task Scheduler",
+                    "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                    "sent_from": "hierarchical.roles.scheduler.Scheduler",
+                    "send_to": [
+                        "Executor"
+                    ],
+                    "metadata": {}
+                }
+            ],
+            "index": {
+                "metagpt.actions.add_requirement.UserRequirement": [
+                    {
+                        "id": "af0f5311d0f64009bed0afa5978ff793",
+                        "content": "人工智能在教育领域的应用",
+                        "instruct_content": null,
+                        "role": "user",
+                        "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                        "sent_from": "",
+                        "send_to": [
+                            "<all>"
+                        ],
+                        "metadata": {}
+                    },
+                    {
+                        "id": "b5fff946c8ba4143a18f0c81b2f2d749",
+                        "content": "Initial outline created, ready for scheduling.",
+                        "instruct_content": {
+                            "class": "Outline",
+                            "module": "hierarchical.schemas",
+                            "value": {
+                                "goal": "人工智能在教育领域的应用",
+                                "root_sections": [
+                                    {
+                                        "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                        "display_id": "1",
+                                        "title": "1. Introduction",
+                                        "level": 1,
+                                        "content": "",
+                                        "status": "WRITING",
+                                        "parent_id": null,
+                                        "sub_sections": [],
+                                        "last_modified": "2025-07-19T20:24:15.533227"
+                                    },
+                                    {
+                                        "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                        "display_id": "2",
+                                        "title": "2. Core Concepts",
+                                        "level": 1,
+                                        "content": "",
+                                        "status": "WRITING",
+                                        "parent_id": null,
+                                        "sub_sections": [],
+                                        "last_modified": "2025-07-19T20:24:15.533258"
+                                    },
+                                    {
+                                        "section_id": "f816141ff3cf4f92a677f50dd5751742",
+                                        "display_id": "3",
+                                        "title": "3. Conclusion",
+                                        "level": 1,
+                                        "content": "",
+                                        "status": "WRITING",
+                                        "parent_id": null,
+                                        "sub_sections": [],
+                                        "last_modified": "2025-07-19T20:24:15.533276"
+                                    }
+                                ]
+                            }
+                        },
+                        "role": "Chief Product Manager",
+                        "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                        "sent_from": "hierarchical.roles.chief_pm.ChiefPM",
+                        "send_to": [
+                            "Scheduler"
+                        ],
+                        "metadata": {}
+                    },
+                    {
+                        "id": "d5e870b462fb475a9c5af48e71207d59",
+                        "content": "Dispatching batch of 3 sections for writing.",
+                        "instruct_content": {
+                            "class": "SectionBatch",
+                            "module": "hierarchical.schemas",
+                            "value": {
+                                "sections": [
+                                    {
+                                        "section_id": "67e0493d450d4008a23d8d2930f6da0c",
+                                        "display_id": "1",
+                                        "title": "1. Introduction",
+                                        "level": 1,
+                                        "content": "",
+                                        "status": "WRITING",
+                                        "parent_id": null,
+                                        "sub_sections": [],
+                                        "last_modified": "2025-07-19T20:24:15.533227"
+                                    },
+                                    {
+                                        "section_id": "19a10b6959a04bfd8d6b465e909044d8",
+                                        "display_id": "2",
+                                        "title": "2. Core Concepts",
+                                        "level": 1,
+                                        "content": "",
+                                        "status": "WRITING",
+                                        "parent_id": null,
+                                        "sub_sections": [],
+                                        "last_modified": "2025-07-19T20:24:15.533258"
+                                    },
+                                    {
+                                        "section_id": "f816141ff3cf4f92a677f50dd5751742",
+                                        "display_id": "3",
+                                        "title": "3. Conclusion",
+                                        "level": 1,
+                                        "content": "",
+                                        "status": "WRITING",
+                                        "parent_id": null,
+                                        "sub_sections": [],
+                                        "last_modified": "2025-07-19T20:24:15.533276"
+                                    }
+                                ]
+                            }
+                        },
+                        "role": "Task Scheduler",
+                        "cause_by": "metagpt.actions.add_requirement.UserRequirement",
+                        "sent_from": "hierarchical.roles.scheduler.Scheduler",
+                        "send_to": [
+                            "Executor"
+                        ],
+                        "metadata": {}
+                    }
+                ]
+            },
+            "ignore_id": false
+        },
+        "__module_class_name": "metagpt.environment.base_env.Environment"
+    },
+    "investment": 10.0,
+    "idea": "人工智能在教育领域的应用",
+    "use_mgx": false,
+    "context": {
+        "kwargs": {
+            "custom_config": {
+                "llm": {
+                    "model": "mistral-medium-latest",
+                    "base_url": "http://192.168.88.7:4000/v1",
+                    "api_key": "sk-1234",
+                    "api_type": "openai",
+                    "max_token": 32000,
+                    "temperature": 0.7
+                },
+                "rag": {
+                    "embedding": {
+                        "api_type": "openai",
+                        "model": "bge-m3",
+                        "dimensions": 1024,
+                        "api_key": "sk-1234",
+                        "base_url": "http://192.168.88.7:4000/v1"
+                    },
+                    "retriever": {
+                        "top_k": 5
+                    }
+                },
+                "search": {
+                    "api_type": "ddg"
+                },
+                "team_settings": {
+                    "n_round": 500,
+                    "investment": 90.0
+                },
+                "llm_activation": {
+                    "CreatePlan": true
+                },
+                "mcp_servers": {
+                    "context7": {
+                        "command": "npx",
+                        "args": [
+                            "-y",
+                            "@upstash/context7-mcp@latest",
+                            "--transport",
+                            "stdio"
+                        ],
+                        "timeout": 40
+                    }
+                },
+                "role_mcp_bindings": {
+                    "Executor": [
+                        "context7"
+                    ],
+                    "ChiefPM": [
+                        "context7"
+                    ]
+                },
+                "hierarchical_doc_writer": {
+                    "max_depth": 5
+                },
+                "human_in_loop": false,
+                "project_path": "/root/metagpt/mgfr/workspace",
+                "archive_path": "/root/metagpt/mgfr/archive"
+            }
+        },
+        "cost_manager": "{\"total_prompt_tokens\":0,\"total_completion_tokens\":0,\"total_budget\":0.0,\"max_budget\":10.0,\"total_cost\":0.0,\"token_costs\":{\"anthropic/claude-3.5-sonnet\":{\"prompt\":0.003,\"completion\":0.015},\"gpt-3.5-turbo\":{\"prompt\":0.0015,\"completion\":0.002},\"gpt-3.5-turbo-0301\":{\"prompt\":0.0015,\"completion\":0.002},\"gpt-3.5-turbo-0613\":{\"prompt\":0.0015,\"completion\":0.002},\"gpt-3.5-turbo-16k\":{\"prompt\":0.003,\"completion\":0.004},\"gpt-3.5-turbo-16k-0613\":{\"prompt\":0.003,\"completion\":0.004},\"gpt-35-turbo\":{\"prompt\":0.0015,\"completion\":0.002},\"gpt-35-turbo-16k\":{\"prompt\":0.003,\"completion\":0.004},\"gpt-3.5-turbo-1106\":{\"prompt\":0.001,\"completion\":0.002},\"gpt-3.5-turbo-0125\":{\"prompt\":0.001,\"completion\":0.002},\"gpt-4-0314\":{\"prompt\":0.03,\"completion\":0.06},\"gpt-4\":{\"prompt\":0.03,\"completion\":0.06},\"gpt-4-32k\":{\"prompt\":0.06,\"completion\":0.12},\"gpt-4-32k-0314\":{\"prompt\":0.06,\"completion\":0.12},\"gpt-4-0613\":{\"prompt\":0.06,\"completion\":0.12},\"gpt-4-turbo-preview\":{\"prompt\":0.01,\"completion\":0.03},\"gpt-4-1106-preview\":{\"prompt\":0.01,\"completion\":0.03},\"gpt-4-0125-preview\":{\"prompt\":0.01,\"completion\":0.03},\"gpt-4-turbo\":{\"prompt\":0.01,\"completion\":0.03},\"gpt-4-turbo-2024-04-09\":{\"prompt\":0.01,\"completion\":0.03},\"gpt-4-vision-preview\":{\"prompt\":0.01,\"completion\":0.03},\"gpt-4-1106-vision-preview\":{\"prompt\":0.01,\"completion\":0.03},\"gpt-4o\":{\"prompt\":0.005,\"completion\":0.015},\"gpt-4o-mini\":{\"prompt\":0.00015,\"completion\":0.0006},\"gpt-4o-mini-2024-07-18\":{\"prompt\":0.00015,\"completion\":0.0006},\"gpt-4o-2024-05-13\":{\"prompt\":0.005,\"completion\":0.015},\"gpt-4o-2024-08-06\":{\"prompt\":0.0025,\"completion\":0.01},\"o1-preview\":{\"prompt\":0.015,\"completion\":0.06},\"o1-preview-2024-09-12\":{\"prompt\":0.015,\"completion\":0.06},\"o1-mini\":{\"prompt\":0.003,\"completion\":0.012},\"o1-mini-2024-09-12\":{\"prompt\":0.003,\"completion\":0.012},\"text-embedding-ada-002\":{\"prompt\":0.0004,\"completion\":0.0},\"glm-3-turbo\":{\"prompt\":0.0007,\"completion\":0.0007},\"glm-4\":{\"prompt\":0.014,\"completion\":0.014},\"glm-4-flash\":{\"prompt\":0.0,\"completion\":0.0},\"glm-4-plus\":{\"prompt\":0.007,\"completion\":0.007},\"gemini-1.5-flash\":{\"prompt\":0.000075,\"completion\":0.0003},\"gemini-1.5-pro\":{\"prompt\":0.0035,\"completion\":0.0105},\"gemini-1.0-pro\":{\"prompt\":0.0005,\"completion\":0.0015},\"moonshot-v1-8k\":{\"prompt\":0.012,\"completion\":0.012},\"moonshot-v1-32k\":{\"prompt\":0.024,\"completion\":0.024},\"moonshot-v1-128k\":{\"prompt\":0.06,\"completion\":0.06},\"open-mistral-7b\":{\"prompt\":0.00025,\"completion\":0.00025},\"open-mixtral-8x7b\":{\"prompt\":0.0007,\"completion\":0.0007},\"mistral-small-latest\":{\"prompt\":0.002,\"completion\":0.006},\"mistral-medium-latest\":{\"prompt\":0.0027,\"completion\":0.0081},\"mistral-large-latest\":{\"prompt\":0.008,\"completion\":0.024},\"claude-instant-1.2\":{\"prompt\":0.0008,\"completion\":0.0024},\"claude-2.0\":{\"prompt\":0.008,\"completion\":0.024},\"claude-2.1\":{\"prompt\":0.008,\"completion\":0.024},\"claude-3-sonnet-20240229\":{\"prompt\":0.003,\"completion\":0.015},\"claude-3-5-sonnet\":{\"prompt\":0.003,\"completion\":0.015},\"claude-3-5-sonnet-v2\":{\"prompt\":0.003,\"completion\":0.015},\"claude-3-5-sonnet-20240620\":{\"prompt\":0.003,\"completion\":0.015},\"claude-3-opus-20240229\":{\"prompt\":0.015,\"completion\":0.075},\"claude-3-haiku-20240307\":{\"prompt\":0.00025,\"completion\":0.00125},\"claude-3-7-sonnet-20250219\":{\"prompt\":0.003,\"completion\":0.015},\"yi-34b-chat-0205\":{\"prompt\":0.0003,\"completion\":0.0003},\"yi-34b-chat-200k\":{\"prompt\":0.0017,\"completion\":0.0017},\"openai/gpt-4\":{\"prompt\":0.03,\"completion\":0.06},\"openai/gpt-4-turbo\":{\"prompt\":0.01,\"completion\":0.03},\"openai/gpt-4o\":{\"prompt\":0.005,\"completion\":0.015},\"openai/gpt-4o-2024-05-13\":{\"prompt\":0.005,\"completion\":0.015},\"openai/gpt-4o-mini\":{\"prompt\":0.00015,\"completion\":0.0006},\"openai/gpt-4o-mini-2024-07-18\":{\"prompt\":0.00015,\"completion\":0.0006},\"google/gemini-flash-1.5\":{\"prompt\":0.00025,\"completion\":0.00075},\"deepseek/deepseek-coder\":{\"prompt\":0.00014,\"completion\":0.00028},\"deepseek/deepseek-chat\":{\"prompt\":0.00014,\"completion\":0.00028},\"yi-large\":{\"prompt\":0.0028,\"completion\":0.0028},\"microsoft/wizardlm-2-8x22b\":{\"prompt\":0.00108,\"completion\":0.00108},\"meta-llama/llama-3-70b-instruct\":{\"prompt\":0.008,\"completion\":0.008},\"llama3-70b-8192\":{\"prompt\":0.0059,\"completion\":0.0079},\"openai/gpt-3.5-turbo-0125\":{\"prompt\":0.0005,\"completion\":0.0015},\"openai/gpt-4-turbo-preview\":{\"prompt\":0.01,\"completion\":0.03},\"openai/o1-preview\":{\"prompt\":0.015,\"completion\":0.06},\"openai/o1-mini\":{\"prompt\":0.003,\"completion\":0.012},\"anthropic/claude-3-opus\":{\"prompt\":0.015,\"completion\":0.075},\"anthropic.claude-3-5-sonnet-20241022-v2:0\":{\"prompt\":0.003,\"completion\":0.015},\"us.anthropic.claude-3-5-sonnet-20241022-v2:0\":{\"prompt\":0.003,\"completion\":0.015},\"anthropic/claude-3.7-sonnet\":{\"prompt\":0.003,\"completion\":0.015},\"anthropic/claude-3.7-sonnet:beta\":{\"prompt\":0.003,\"completion\":0.015},\"anthropic/claude-3.7-sonnet:thinking\":{\"prompt\":0.003,\"completion\":0.015},\"anthropic.claude-3-7-sonnet-20250219-v1:0\":{\"prompt\":0.003,\"completion\":0.015},\"us.anthropic.claude-3-7-sonnet-20250219-v1:0\":{\"prompt\":0.003,\"completion\":0.015},\"google/gemini-pro-1.5\":{\"prompt\":0.0025,\"completion\":0.0075},\"deepseek-chat\":{\"prompt\":0.00027,\"completion\":0.0011},\"deepseek-coder\":{\"prompt\":0.00027,\"completion\":0.0011},\"deepseek-reasoner\":{\"prompt\":0.00055,\"completion\":0.0022},\"doubao-lite-4k-240515\":{\"prompt\":0.000043,\"completion\":0.000086},\"doubao-lite-32k-240515\":{\"prompt\":0.000043,\"completion\":0.000086},\"doubao-lite-128k-240515\":{\"prompt\":0.00011,\"completion\":0.00014},\"doubao-pro-4k-240515\":{\"prompt\":0.00011,\"completion\":0.00029},\"doubao-pro-32k-240515\":{\"prompt\":0.00011,\"completion\":0.00029},\"doubao-pro-128k-240515\":{\"prompt\":0.0007,\"completion\":0.0013},\"llama3-70b-llama3-70b-instruct\":{\"prompt\":0.0,\"completion\":0.0},\"llama3-8b-llama3-8b-instruct\":{\"prompt\":0.0,\"completion\":0.0},\"llama-4-Scout-17B-16E-Instruct-FP8\":{\"prompt\":0.0,\"completion\":0.0},\"llama-4-Maverick-17B-128E-Instruct-FP8\":{\"prompt\":0.0,\"completion\":0.0},\"llama-3.3-8B-Instruct\":{\"prompt\":0.0,\"completion\":0.0},\"llama-3.3-70B-Instruct\":{\"prompt\":0.0,\"completion\":0.0}}}"
+    }
+}
