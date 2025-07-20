@@ -1,4 +1,3 @@
-
 # hierarchical/roles/executor.py
 import asyncio
 import sys
@@ -17,7 +16,11 @@ from metagpt.schema import Message
 from metagpt.logs import logger
 from hierarchical.roles.base_role import HierarchicalBaseRole
 from hierarchical.schemas import Outline, Section, SectionBatch
+# --- 导入真实的 WriteSection Action ---
 from hierarchical.actions.write_section import WriteSection
+# --- 【核心新增】导入上下文构建工具函数 ---
+from hierarchical.utils import build_context_for_writing 
+
 
 class Executor(HierarchicalBaseRole):
     """
@@ -34,9 +37,11 @@ class Executor(HierarchicalBaseRole):
         self._watch(["hierarchical.roles.scheduler.Scheduler"])
 
     def _get_action(self, action_class: type) -> Action:
+        """Helper to get an action instance by its class."""
         return next((a for a in self.actions if isinstance(a, action_class)), None)
 
     async def _process_section_workflow(self, section: Section) -> Tuple[str, str]:
+        """Runs the real Write-Review-Revise workflow for a single section."""
         logger.info(f"  -> Starting REAL workflow for '{section.title}'...")
         
         semaphore = self.context.semaphore
@@ -50,8 +55,14 @@ class Executor(HierarchicalBaseRole):
                 logger.error("WriteSection action not found!")
                 return (section.section_id, "Error: WriteSection action not found.")
             
-            draft = await write_action.run(section=section, goal=outline.goal)
-            final_content = f"## {section.display_id} {section.title}\n\n{draft}"
+            # --- 【核心新增】构建智能上下文 ---
+            writing_context = build_context_for_writing(outline, section.section_id)
+
+            # --- 【核心修正】将构建好的上下文传递给 Action ---
+            draft = await write_action.run(context=writing_context)
+            
+            # 不再手动添加标题，直接将纯文本作为最终内容
+            final_content = draft
 
         logger.info(f"  <- Finished workflow for '{section.title}'. Semaphore released.")
         return (section.section_id, final_content)
@@ -78,7 +89,6 @@ class Executor(HierarchicalBaseRole):
         coroutines = [self._process_section_workflow(sec) for sec in sections_to_process]
         results = await asyncio.gather(*coroutines)
 
-        # --- 【核心修正】在使用 outline 前，先从 context 中获取它 ---
         if not hasattr(self.context, 'outline') or not self.context.outline:
              logger.error("Outline not found in context. Cannot update results.")
              return None
