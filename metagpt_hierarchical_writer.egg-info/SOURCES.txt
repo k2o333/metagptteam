@@ -1,0 +1,8 @@
+setup.py
+metagpt_hierarchical_writer.egg-info/PKG-INFO
+metagpt_hierarchical_writer.egg-info/SOURCES.txt
+metagpt_hierarchical_writer.egg-info/dependency_links.txt
+metagpt_hierarchical_writer.egg-info/top_level.txt
+tests/__init__.py
+tests/test_bge_connection.py
+tests/test_bge_faiss_store.py

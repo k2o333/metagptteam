@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+numpy
+faiss-cpu
+llama-index-core>=0.10.15 # 注意：这里是服务端的llama-index版本，可能与MetaGPT环境不同
+llama-index-embeddings-openai # 用于加载BGE
+python-dotenv # 如果你需要从.env文件加载API_KEY

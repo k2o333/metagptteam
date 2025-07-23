@@ -1,0 +1,23 @@
+2025-07-22 13:29:06.185 | INFO     | hierarchical.rag.stores.bge_faiss_store:_load:26 - Attempting to load FAISS store from /tmp/pytest-of-root/pytest-34/test_add_and_persist0
+2025-07-22 13:29:06.185 | WARNING  | hierarchical.rag.stores.bge_faiss_store:_load:37 - FAISS index or map file not found. Initializing a new empty store.
+2025-07-22 13:29:06.206 | INFO     | hierarchical.rag.stores.bge_faiss_store:add_vector:67 - Initialized new FAISS index with dimension 8.
+2025-07-22 13:29:06.222 | SUCCESS  | hierarchical.rag.stores.bge_faiss_store:persist:54 - Successfully persisted FAISS store to /tmp/pytest-of-root/pytest-34/test_add_and_persist0
+2025-07-22 13:29:06.225 | INFO     | hierarchical.rag.stores.bge_faiss_store:_load:26 - Attempting to load FAISS store from /tmp/pytest-of-root/pytest-34/test_load0
+2025-07-22 13:29:06.226 | WARNING  | hierarchical.rag.stores.bge_faiss_store:_load:37 - FAISS index or map file not found. Initializing a new empty store.
+2025-07-22 13:29:06.226 | INFO     | hierarchical.rag.stores.bge_faiss_store:add_vector:67 - Initialized new FAISS index with dimension 8.
+2025-07-22 13:29:06.227 | SUCCESS  | hierarchical.rag.stores.bge_faiss_store:persist:54 - Successfully persisted FAISS store to /tmp/pytest-of-root/pytest-34/test_load0
+2025-07-22 13:29:06.227 | INFO     | hierarchical.rag.stores.bge_faiss_store:_load:26 - Attempting to load FAISS store from /tmp/pytest-of-root/pytest-34/test_load0
+2025-07-22 13:29:06.229 | SUCCESS  | hierarchical.rag.stores.bge_faiss_store:_load:32 - Successfully loaded FAISS index with 1 vectors and map with 1 entries.
+2025-07-22 13:29:06.232 | INFO     | hierarchical.rag.stores.bge_faiss_store:_load:26 - Attempting to load FAISS store from /tmp/pytest-of-root/pytest-34/test_search0
+2025-07-22 13:29:06.233 | WARNING  | hierarchical.rag.stores.bge_faiss_store:_load:37 - FAISS index or map file not found. Initializing a new empty store.
+2025-07-22 13:29:06.233 | INFO     | hierarchical.rag.stores.bge_faiss_store:add_vector:67 - Initialized new FAISS index with dimension 8.
+2025-07-22 14:18:13.094 | INFO     | hierarchical.rag.adapters.context7_adapter:query:47 - Querying Context7: http://fake-context7.com/api/v1/query with agent_type: Writer
+2025-07-22 14:18:13.098 | INFO     | hierarchical.rag.adapters.context7_adapter:query:47 - Querying Context7: http://fake-context7.com/api/v1/query with agent_type: Reviewer
+2025-07-22 14:18:13.099 | WARNING  | hierarchical.rag.adapters.context7_adapter:query:54 - Context7 query failed due to a network error: Test connection error. Triggering fallback.
+2025-07-22 14:18:13.135 | INFO     | hierarchical.rag.adapters.context7_adapter:audit_query:71 - Successfully audited query for agent: Archiver
+2025-07-22 14:23:52.799 | INFO     | hierarchical.rag.adapters.context7_adapter:query:47 - Querying Context7: http://fake-context7.com/api/v1/query with agent_type: Writer
+2025-07-22 14:23:52.803 | INFO     | hierarchical.rag.adapters.context7_adapter:query:47 - Querying Context7: http://fake-context7.com/api/v1/query with agent_type: Reviewer
+2025-07-22 14:23:52.804 | WARNING  | hierarchical.rag.adapters.context7_adapter:query:54 - Context7 query failed due to a network error: Test connection error. Triggering fallback.
+2025-07-22 14:23:52.839 | INFO     | hierarchical.rag.adapters.context7_adapter:audit_query:71 - Successfully audited query for agent: Archiver
+2025-07-22 14:27:27.020 | INFO     | hierarchical.rag.adapters.context7_adapter:query:47 - Querying Context7: http://fake-context7.com/api/v1/query with agent_type: Writer
+2025-07-22 14:27:27.030 | INFO     | hierarchical.rag.adapters.context7_adapter:audit_query:71 - Successfully audited query for agent: Archiver

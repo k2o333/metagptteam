@@ -1,0 +1,8 @@
+2025-07-23 20:13:03.729 | INFO     | hierarchical.rag.stores.bge_faiss_store:_load:26 - Attempting to load FAISS store from /root/metagpt/mghier/my_private_rag_service/data
+2025-07-23 20:13:03.729 | WARNING  | hierarchical.rag.stores.bge_faiss_store:_load:37 - FAISS index or map file not found. Initializing a new empty store.
+2025-07-23 20:27:57.717 | INFO     | hierarchical.rag.stores.bge_faiss_store:_load:26 - Attempting to load FAISS store from /root/metagpt/mghier/my_private_rag_service/data
+2025-07-23 20:27:57.717 | WARNING  | hierarchical.rag.stores.bge_faiss_store:_load:37 - FAISS index or map file not found. Initializing a new empty store.
+2025-07-23 20:27:58.086 | INFO     | hierarchical.rag.stores.bge_faiss_store:add_vector:67 - Initialized new FAISS index with dimension 1024.
+2025-07-23 20:27:58.360 | SUCCESS  | hierarchical.rag.stores.bge_faiss_store:persist:54 - Successfully persisted FAISS store to /root/metagpt/mghier/my_private_rag_service/data
+2025-07-23 20:28:35.813 | INFO     | hierarchical.rag.stores.bge_faiss_store:_load:26 - Attempting to load FAISS store from /root/metagpt/mghier/my_private_rag_service/data
+2025-07-23 20:28:35.907 | SUCCESS  | hierarchical.rag.stores.bge_faiss_store:_load:32 - Successfully loaded FAISS index with 5 vectors and map with 5 entries.
