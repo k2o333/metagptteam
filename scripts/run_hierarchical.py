@@ -1,4 +1,4 @@
-# scripts/run_hierarchical.py (最终整合版)
+# scripts/run_hierarchical.py
 import asyncio
 import sys
 from pathlib import Path
@@ -17,7 +17,7 @@ from metagpt.logs import logger
 from metagpt.team import Team
 from metagpt.schema import Message
 from hierarchical.context import HierarchicalContext
-from hierarchical.schemas import Outline, Section
+from hierarchical.schemas import Outline
 
 # --- 导入所有角色 ---
 from hierarchical.roles.chief_pm import ChiefPM
@@ -28,9 +28,11 @@ from hierarchical.roles.archiver import Archiver
 # --- 日志设置 ---
 LOGS_DIR = PROJECT_ROOT / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
-logger.add(LOGS_DIR / "run_hierarchical.log", rotation="10 MB", retention="1 week")
+logger.remove()
+logger.add(sys.stderr, level="DEBUG")
+logger.add(LOGS_DIR / "run_hierarchical.log", rotation="10 MB", retention="1 week", level="DEBUG")
 
-async def main(idea: str, n_round: int = 50):
+async def main(idea: str, n_round: int = 500):
     """
     主运行函数，负责设置、组建团队并运行。
     """
@@ -45,16 +47,12 @@ async def main(idea: str, n_round: int = 50):
         logger.error(f"全局配置文件未找到: {global_config_path}")
         return
 
-    # 加载 MetaGPT 标准配置 (llm, embedding, models, etc.)
-    logger.info(f"正在从 {global_config_path} 加载全局配置...")
     global_config = Config.from_yaml_file(global_config_path)
-
-    # 读取原始全局YAML以提取我们自定义的顶层配置 (如 private_rag_service)
+    
     raw_global_config_data: Dict[str, Any] = {}
     with open(global_config_path, 'r', encoding='utf-8') as f:
         raw_global_config_data = yaml.safe_load(f) or {}
     
-    # 加载本地项目级策略配置
     local_config_data: Dict[str, Any] = {}
     if local_config_path.is_file():
         logger.info(f"正在从 {local_config_path} 加载本地项目配置...")
@@ -65,22 +63,10 @@ async def main(idea: str, n_round: int = 50):
 
     # --- 2. 上下文 (Context) 初始化 ---
     ctx = HierarchicalContext(config=global_config)
-
-    # 将所有自定义配置（全局自定义 + 本地策略）统一放入 context.kwargs.custom_config
-    # 这样，任何角色都可以通过 self.context.kwargs.custom_config 访问到所有非标准配置
-    ctx.kwargs.custom_config = {
-        **raw_global_config_data, # 包含 private_rag_service 等
-        **local_config_data,      # 包含 role_pools, hierarchical_doc_writer 等
-    }
-    
-    # 为了向后兼容和代码清晰，也可以单独设置策略配置
+    ctx.kwargs.custom_config = {**raw_global_config_data, **local_config_data}
     ctx.kwargs.strategy_config = local_config_data
-
-    # 从合并后的自定义配置中获取 hierarchical_doc_writer 设置
     hierarchical_config = ctx.kwargs.custom_config.get("hierarchical_doc_writer", {})
     semaphore_limit = hierarchical_config.get("strong_model_semaphore_limit", 2)
-    
-    # 设置关键的运行时对象
     ctx.semaphore = asyncio.Semaphore(semaphore_limit)
     ctx.outline = Outline(goal=idea)
     
@@ -88,24 +74,39 @@ async def main(idea: str, n_round: int = 50):
 
     # --- 3. 团队组建 ---
     team = Team(context=ctx, use_mgx=False)
-    team.hire([
-        ChiefPM(),
-        Scheduler(),
-        Executor(),
-        Archiver()
-    ])
+    team.hire([ChiefPM(), Scheduler(), Executor(), Archiver()])
 
-    # --- 4. 运行 ---
-    logger.info(f"使用 team.run(idea=...) 启动项目，最大轮次: {n_round}")
-    await team.run(idea=idea, n_round=n_round) 
+    # --- 4. 运行 (带强制归档) ---
+    try:
+        logger.info(f"使用 team.run(idea=...) 启动项目，最大轮次: {n_round}")
+        await team.run(idea=idea, n_round=n_round) 
+    except Exception as e:
+        logger.error(f"团队运行期间发生异常: {e}", exc_info=True)
+    finally:
+        logger.info("--- 强制执行最终归档（无论成功与否） ---")
+        archiver = team.env.get_role("Archiver")
+        if archiver and hasattr(archiver, '_assemble_document'):
+            outline: Outline = archiver.context.outline
+            if outline and (outline.root_sections or outline.goal):
+                final_doc_content = archiver._assemble_document(outline)
+
+                output_path = Path("outputs") 
+                output_path.mkdir(exist_ok=True)
+                
+                timestamp = "final_forced"
+                safe_goal_name = "".join(c for c in outline.goal if c.isalnum() or c in " _-").strip()[:50]
+                doc_filename = f"final_document_{safe_goal_name}_{timestamp}.md"
+                doc_path = output_path / doc_filename
+                doc_path.write_text(final_doc_content, encoding='utf-8')
+                
+                logger.success(f"强制归档成功！最终（或半成品）文档已生成: {doc_path}")
+            else:
+                logger.warning("无法进行强制归档，因为outline为空或没有内容。")
 
     # --- 5. 结束 ---
     logger.info("--- 团队运行结束 ---")
     print(f"\n--- 文档生成流程完成，请检查 'outputs' 目录 ---")
 
-
 if __name__ == "__main__":
     user_idea = "人工智能在教育领域的应用"
-    # 确保私有RAG服务正在另一个终端中运行
-    # uvicorn main:app --host 0.0.0.0 --port 9000
     asyncio.run(main(idea=user_idea))

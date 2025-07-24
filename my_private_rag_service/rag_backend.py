@@ -1,46 +1,34 @@
-# my_private_rag_service/rag_backend.py (最终修正，从 custom_config 获取私有RAG服务配置)
+# my_private_rag_service/rag_backend.py (最终修正版)
 import os
 import sys
 from pathlib import Path
 from typing import List, Dict, Any
-import yaml # 【新增】导入 yaml
+import yaml
 
 import numpy as np
-from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.core import Document, Settings
 from metagpt.rag.factories.embedding import RAGEmbeddingFactory
 from metagpt.config2 import Config
 
-# --- 显式添加 hierarchical 项目根目录到 sys.path ---
 current_file_path = Path(__file__).resolve()
 mghier_root = current_file_path.parent.parent
 sys.path.insert(0, str(mghier_root))
-# --------------------------------------------------------------------
 
 from hierarchical.rag.stores.bge_faiss_store import BGEFAISSStore
 
 class RAGSystem:
     def __init__(self, config_path: str = "/root/.metagpt/config2.yaml"):
-        # 【修正】: 加载MetaGPT的标准Config
-        self.config = Config.from_yaml_file(Path(config_path)) 
+        self.config = Config.from_yaml_file(Path(config_path))
         
-        # 【核心修正】: 直接从原始YAML数据中提取 private_rag_service 配置
-        # 因为 Config 对象本身可能没有这个属性
         raw_config_data: Dict[str, Any] = {}
         with open(Path(config_path), 'r', encoding='utf-8') as f:
             raw_config_data = yaml.safe_load(f)
         
         private_rag_service_config = raw_config_data.get("private_rag_service", {})
         
-        # 初始化嵌入模型 (这部分保持不变，因为 embedding 是 Config 的标准字段)
         self.embedding_model = RAGEmbeddingFactory(config=self.config).get_rag_embedding()
         
-        # 初始化向量存储
-        # 【修正】: 使用从原始YAML中获取的 private_rag_service_config
-        persist_path = private_rag_service_config.get("persist_path", "./data") 
-        
-        Path(persist_path).mkdir(parents=True, exist_ok=True) # 确保持久化目录存在
-
+        persist_path = private_rag_service_config.get("persist_path", "./data")
+        Path(persist_path).mkdir(parents=True, exist_ok=True)
         self.vector_store = BGEFAISSStore(persist_path=persist_path)
         
         if self.vector_store.faiss_index is None or self.vector_store.faiss_index.ntotal == 0:
@@ -66,8 +54,9 @@ class RAGSystem:
         if indices.size > 0:
             for i, idx in enumerate(indices[0]):
                 results.append({
-                    "id": idx,
+                    # 【核心修正】: 将 numpy 类型转换为 Python 原生类型
+                    "id": int(idx),
                     "distance": float(distances[0][i]),
-                    "content": f"Retrieved content for ID {idx} (Distance: {distances[0][i]:.4f}). [Placeholder]"
+                    "content": f"Retrieved content for ID {int(idx)} (Distance: {float(distances[0][i]):.4f}). [Placeholder]"
                 })
         return results

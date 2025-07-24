@@ -48,3 +48,24 @@ def build_context_for_writing(outline: Outline, target_section_id: str) -> Dict[
         "sibling_titles": "\n".join(sibling_titles) if sibling_titles else "None",
         "breadcrumbs": "\n".join(breadcrumbs_list),
     }
+
+# 【核心新增】分层 LLM 调度辅助函数
+def get_llm_pool_for_action(role_name: str, action_name: str, strategy_config: dict) -> List[str]:
+    """
+    根据策略配置，为给定的 Role-Action 组合确定 LLM 资源池。
+    优先级: Role-Action 池 > Role 默认池。
+    """
+    role_action_pools = strategy_config.get("role_action_pools", {})
+    role_default_pools = strategy_config.get("role_default_pools", {})
+    
+    # 1. 最高优先级：Role-Action 特定池
+    action_key = f"{role_name}-{action_name}"
+    if action_key in role_action_pools:
+        return role_action_pools[action_key]
+        
+    # 2. 次高优先级：Role 默认池
+    if role_name in role_default_pools:
+        return role_default_pools[role_name]
+        
+    # 3. 如果都没有配置，返回空列表
+    return []

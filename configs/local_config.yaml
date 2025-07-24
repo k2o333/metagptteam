@@ -1,0 +1,79 @@
+# ~/metagpt/mghier/configs/local_config.yaml
+
+# 角色级别的默认 LLM 资源池
+# 当更具体的 role_action_pools 中没有定义时，会使用这里的配置
+role_default_pools:
+  ChiefPM: 
+    - "mistral-medium"  # ChiefPM 默认使用 Mistral Medium，因为它推理强，效率高
+  Scheduler:
+    - "glm4f"           # Scheduler 使用更经济、快速的 GLM4f
+  Executor:
+    - "magistral-small" # Executor 的默认模型，适用于一般性写作任务
+  Archiver: 
+    - "glmz1f"          # Archiver 理论上无需LLM，如果需要，分配一个廉价的快速模型
+
+# Role-Action 级别的特定 LLM 资源池
+# 这里的 key 格式是 "RoleClassName-ActionClassName"
+# 这具有最高优先级，覆盖 role_default_pools 的配置
+role_action_pools:
+  # ChiefPM 的 Actions
+  ChiefPM-CreateSubOutline:
+    - "glm4f"  
+    - "mistral-medium"  # 核心规划，确保高质量
+    - "gemini-2.5-flash-lite" # 备用高推理模型
+  
+  # Scheduler 的 Actions
+  # Scheduler-CreateSubOutline 会被 ChiefPM-CreateSubOutline 覆盖，因为它们可能调用同一个Action
+  # 但这里的 Scheduler 的 CreateSubOutline 是指 Scheduler 自己生成子大纲时（如果它有这个行为的话）
+  # 实际上，Scheduler更多是调度 ChiefPM 的 CreateSubOutline，所以这个可能用不上
+  # 如果 Scheduler 自己需要 LLM 生成子大纲，可以用这个：
+  # Scheduler-CreateSubOutline: 
+  #   - "magistral-small" 
+
+  Scheduler-CompleteAllTasks: # 这个 Action 通常不需要 LLM，但为完整性保留
+    - "glmz1f" # 如果需要LLM，用最快的
+    - "mistral-small"      # 次一级但快速的写作模型，用于负载均衡
+    - "gemini-2.5-flash-lite" 
+
+  # Executor 的 Actions
+  Executor-WriteSection:
+    - "glm4f"    # 高质量写作，可以处理复杂内容
+    - "mistral-small"      # 次一级但快速的写作模型，用于负载均衡
+    - "gemma-3"            # 快速且经济的备用模型
+    
+  Executor-ReviewSection: # 评审需要高精度和批判性思维
+    - "gemini-2.5-flash"   # 顶级的推理和长上下文模型
+    - "magistral-medium"    # 备用高质量模型
+    - "glmz1f" # 如果需要LLM，用最快的
+    - "DeepSeek-R1-0528-Qwen3-8B" 
+
+  Executor-ReviseSection: # 修订基于评审意见，也需要高质量
+    - "magistral-medium"
+    - "mistral-small"
+    - "glmz1f" # 如果需要LLM，用最快的
+
+  # Research Action (通常由 ChiefPM 或 Executor 调用)
+  # ChiefPM 的 Research Action
+  ChiefPM-Research:
+    - "gemini-2.5-flash-lite" # 研究查询，需要快速且能处理大量信息
+    - "glm4f"                 # 快速备用
+    - "magistral-medium"   
+  # Executor 的 Research Action (如果 Executor 也要做研究)
+  Executor-Research:
+    - "gemini-2.5-flash-lite"
+    - "glm4f"
+    - "gemma-3"
+
+# MetaGPT 内置的 MCP 服务器绑定（从你的 config2.yaml 复制过来）
+# 这部分配置是给 MetaGPT 框架内置的 MCPClient 使用的，与我们自定义的Context7Adapter无关。
+# 但为了保持所有“角色策略”配置的集中性，将其放置在此处。
+role_mcp_bindings:
+  Executor: 
+    - "context7" 
+  ChiefPM:
+    - "context7"
+
+# (新架构) 层次化文档生成器的特定配置
+hierarchical_doc_writer:
+  max_depth: 2 # 将深度设为3，以观察更多LLM调用
+  strong_model_semaphore_limit: 3 # 并发LLM调用的信号量限制
