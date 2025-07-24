@@ -39,7 +39,7 @@ role_action_pools:
   Executor-WriteSection:
     - "glm4f"    # 高质量写作，可以处理复杂内容
     - "mistral-small"      # 次一级但快速的写作模型，用于负载均衡
-    - "gemma-3"            # 快速且经济的备用模型
+    - "Qwen3-8B"            # 快速且经济的备用模型
     
   Executor-ReviewSection: # 评审需要高精度和批判性思维
     - "gemini-2.5-flash"   # 顶级的推理和长上下文模型
@@ -62,7 +62,7 @@ role_action_pools:
   Executor-Research:
     - "gemini-2.5-flash-lite"
     - "glm4f"
-    - "gemma-3"
+    - "Qwen3-8B"
 
 # MetaGPT 内置的 MCP 服务器绑定（从你的 config2.yaml 复制过来）
 # 这部分配置是给 MetaGPT 框架内置的 MCPClient 使用的，与我们自定义的Context7Adapter无关。
