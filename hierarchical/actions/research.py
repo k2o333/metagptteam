@@ -1,4 +1,5 @@
-# hierarchical/actions/research.py
+# mghier/hierarchical/actions/research.py (完整重构版)
+
 import sys
 from pathlib import Path
 from typing import Dict, Any
@@ -13,13 +14,15 @@ sys.path.insert(0, str(METAGPT_ROOT))
 from metagpt.actions import Action
 from metagpt.logs import logger
 from metagpt.config2 import Config
-from hierarchical.rag.engines.hierarchical_rag_engine import HierarchicalRAGEngine
-from hierarchical.rag.adapters.context7_adapter import Context7Adapter
+
+# 导入我们新的 DocRAGEngine
+from hierarchical.rag.engines.docrag_engine import DocRAGEngine 
 from hierarchical.schemas import RAGResponse
 
 class Research(Action):
     """
-    一个用于执行研究的Action，它将调用 HierarchicalRAGEngine。
+    一个用于执行研究的Action。
+    在当前版本中，它将调用本地的 DocRAGEngine。
     """
     name: str = "Research"
 
@@ -28,38 +31,30 @@ class Research(Action):
         初始化 Research Action。
         
         注意：此 Action 依赖于运行时传入的 `context` 对象来初始化其 RAG 引擎，
-        因为它需要访问全局配置和我们自定义的服务配置。
+        因为它需要访问全局配置。
         """
         super().__init__(**kwargs)
         self.context = context
         
-        # 从 context.kwargs.custom_config 中获取 private_rag_service 配置
-        custom_config = self.context.kwargs.get("custom_config", {})
-        private_rag_config = custom_config.get("private_rag_service", {})
-        
-        self.context7_adapter = Context7Adapter(
-            base_url=private_rag_config.get("base_url", "http://localhost:9000"),
-            api_key=private_rag_config.get("api_key", "dummy-api-key")
-        )
-        self.rag_engine = HierarchicalRAGEngine(
-            config=self.context.config, 
-            context7_adapter=self.context7_adapter
-        )
-        logger.info("Research Action initialized with HierarchicalRAGEngine.")
+        # 实例化我们新的、干净的 DocRAGEngine
+        self.rag_engine = DocRAGEngine(config=self.context.config)
+        logger.info("Research Action initialized with DocRAGEngine.")
 
     async def run(self, query: str, agent_type: str = "Researcher") -> Dict[str, Any]:
         """
-        执行研究查询。
+        执行研究查询，当前仅使用本地RAG。
+
         :param query: 研究查询字符串。
-        :param agent_type: 发起查询的代理类型。
+        :param agent_type: 发起查询的代理类型 (当前未使用，为保持签名兼容性保留)。
         :return: 研究结果字典。
         """
-        logger.info(f"Research Action running query: '{query}'")
-        rag_response: RAGResponse = await self.rag_engine.search(query, agent_type=agent_type)
-        logger.info(f"Research Action received RAG response for '{query}'")
+        logger.info(f"Research Action running query: '{query}' using local DocRAG.")
+        
+        # 直接调用我们本地引擎的 search 方法
+        rag_response: RAGResponse = await self.rag_engine.search(query)
+        logger.info(f"Research Action received DocRAG response for '{query}'")
         
         # 从 rag_response.rag_context.nodes 属性获取检索到的内容
-        # 即使 RAGContext 内部使用 _nodes，我们通过 @property 访问它
         return {
             "query": query,
             "response_summary": rag_response.response,
