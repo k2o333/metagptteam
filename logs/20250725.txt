@@ -1,0 +1,15 @@
+2025-07-25 22:58:09.558 | INFO     | hierarchical.roles.chief_pm:_act:42 - --- ChiefPM is acting... ---
+2025-07-25 22:58:09.558 | WARNING  | hierarchical.roles.chief_pm:_act:50 - ChiefPM was triggered, but no UserRequirement found in memory. Skipping.
+2025-07-25 22:58:09.891 | INFO     | hierarchical.roles.chief_pm:_act:42 - --- ChiefPM is acting... ---
+2025-07-25 22:58:09.891 | WARNING  | hierarchical.roles.chief_pm:_act:50 - ChiefPM was triggered, but no UserRequirement found in memory. Skipping.
+2025-07-25 23:03:47.361 | INFO     | hierarchical.roles.chief_pm:_act:42 - --- ChiefPM is acting... ---
+2025-07-25 23:03:47.362 | INFO     | hierarchical.roles.chief_pm:_act:56 - ChiefPM is conducting initial research...
+2025-07-25 23:03:47.362 | SUCCESS  | hierarchical.roles.chief_pm:_act:80 - Research successful. Context for outlining:
+{
+  "info": "This is a successful research result."
+}...
+2025-07-25 23:03:47.362 | INFO     | hierarchical.roles.chief_pm:_act:99 - Initial outline created with 0 top-level sections.
+2025-07-25 23:03:47.393 | INFO     | hierarchical.roles.chief_pm:_act:42 - --- ChiefPM is acting... ---
+2025-07-25 23:03:47.393 | INFO     | hierarchical.roles.chief_pm:_act:56 - ChiefPM is conducting initial research...
+2025-07-25 23:03:47.393 | WARNING  | hierarchical.roles.chief_pm:_act:83 - Research failed: MCP tool timed out.. Proceeding to generate outline without research context.
+2025-07-25 23:03:47.393 | INFO     | hierarchical.roles.chief_pm:_act:99 - Initial outline created with 0 top-level sections.

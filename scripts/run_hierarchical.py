@@ -167,5 +167,5 @@ async def main(idea: str, max_llm_calls: int = 59):
     print(f"\n--- 文档生成流程完成，请检查 'outputs' 目录 ---")
 
 if __name__ == "__main__":
-    user_idea = "用metagpt如何可以控制gemini-cli进行代码生成？"
+    user_idea = "metagpt的role和action分别是什么"
     asyncio.run(main(idea=user_idea, max_llm_calls=200))

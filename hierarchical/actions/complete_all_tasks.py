@@ -1,4 +1,5 @@
-# hierarchical/actions/complete_all_tasks.py (新增文件)
+# mghier/hierarchical/actions/complete_all_tasks.py (修复版)
+
 import sys
 from pathlib import Path
 
@@ -17,9 +18,13 @@ class CompleteAllTasks(Action):
     A specific action used by Scheduler to signal that all document generation tasks are completed.
     This action is meant to be watched by roles like Archiver.
     """
-    name: str = "CompleteAllTasks" # 名称用于识别
+    name: str = "CompleteAllTasks"
     
-    async def run(self) -> str:
-        """This action doesn't perform any complex logic, it simply signals completion."""
+    # 【核心修复】在 run 方法签名中添加 **kwargs
+    async def run(self, **kwargs) -> str:
+        """
+        This action doesn't perform any complex logic, it simply signals completion.
+        It now accepts **kwargs to ignore any extra parameters.
+        """
         logger.info("Signaling: ALL_DOCUMENT_TASKS_COMPLETED.")
         return "ALL_DOCUMENT_TASKS_COMPLETED"

@@ -1,7 +1,8 @@
-# hierarchical/actions/write_section.py
+# mghier/hierarchical/actions/write_section.py (修复版)
+
 import sys
 from pathlib import Path
-from typing import Dict, Any # <-- 引入 Dict, Any
+from typing import Dict, Any
 
 # --- 路径设置 ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -12,9 +13,8 @@ sys.path.insert(0, str(METAGPT_ROOT))
 
 from metagpt.actions import Action
 from metagpt.logs import logger
-from hierarchical.schemas import Section # Section is used in context construction, not directly in run signature
+from hierarchical.schemas import Section
 
-# --- 【核心修正】升级 Prompt 模板 ---
 PROMPT_TEMPLATE = """
 You are an expert technical writer. Your task is to write the body content for a specific section of a document.
 
@@ -44,8 +44,12 @@ You are an expert technical writer. Your task is to write the body content for a
 class WriteSection(Action):
     name: str = "WriteSection"
     
-    # --- 【核心修正】run 方法现在接收一个 context 字典 ---
-    async def run(self, context: Dict[str, Any]) -> str:
+    # 【核心修复】在 run 方法签名中添加 **kwargs
+    async def run(self, context: Dict[str, Any], **kwargs) -> str:
+        """
+        Writes the content for a single section based on the provided context.
+        It now accepts **kwargs to ignore any extra parameters.
+        """
         prompt = PROMPT_TEMPLATE.format(
             goal=context.get("goal", "N/A"),
             breadcrumbs=context.get("breadcrumbs", "N/A"),

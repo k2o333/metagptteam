@@ -1,13 +1,16 @@
-# hierarchical/roles/chief_pm.py (The Definitive Final Version)
+# mghier/hierarchical/roles/chief_pm.py (第二次修复版)
+
 import sys
+import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Type # 【新增】导入 Type
 
 from metagpt.actions import Action
 from metagpt.actions.add_requirement import UserRequirement
 from metagpt.logs import logger
 from metagpt.schema import Message
-from hierarchical.actions import CreateSubOutline, Research
+# 【修改】导入Action类本身
+from hierarchical.actions import CreateSubOutline, Research 
 from hierarchical.roles.base_role import HierarchicalBaseRole
 from hierarchical.schemas import Outline
 
@@ -16,15 +19,24 @@ class ChiefPM(HierarchicalBaseRole):
     profile: str = "Chief Product Manager"
     goal: str = "Create the initial high-level structure of the document."
 
-    def __init__(self, **kwargs): # <--- SYNTAX ERROR FIXED
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([CreateSubOutline()]) 
+        # 【核心修复】传递 Action 类，而不是实例
+        self.set_actions([CreateSubOutline, Research]) 
         self._watch([UserRequirement])
         self.plan_created = False
 
-    def _get_action(self, action_class: type) -> Action:
-        """Helper to get an action instance by its class."""
-        return next((a for a in self.actions if isinstance(a, action_class)), None)
+    # 【修改】_get_action 方法现在通过类的类型来查找实例
+    def _get_action(self, action_class: Type[Action]) -> Action:
+        """
+        Helper to get an action instance by its class type.
+        Role.actions 列表中存放的是Action的实例。
+        """
+        # self.actions 列表是在 super().__init__ 中由 set_actions 创建的，里面存放的是实例
+        for action in self.actions:
+            if isinstance(action, action_class):
+                return action
+        return None
 
     async def _act(self) -> Message:
         logger.info(f"--- {self.name} is acting... ---")
@@ -40,23 +52,47 @@ class ChiefPM(HierarchicalBaseRole):
 
         outline: Outline = self.context.outline
 
-        # --- Research Phase (AC3.1) ---
+        # --- Research Phase ---
         logger.info("ChiefPM is conducting initial research...")
-        research_action = Research(context=self.context)
-        research_result = await self._execute_action(
-            research_action, 
-            query=outline.goal, 
-            agent_type=self.name
-        )
-        logger.info(f"Initial research completed. Result snippet: {str(research_result)[:200]}...")
-
-        # --- Outline Creation Phase ---
-        create_outline_action = self._get_action(CreateSubOutline)
         
+        # 【修改】通过类来获取Action实例
+        research_action = self._get_action(Research)
+        if not research_action:
+            raise RuntimeError("Research action not found in ChiefPM.")
+        
+        # 不再需要手动注入context，因为Role在初始化时已经做了
+        # research_action.context = self.context 
+        
+        research_results_by_query = await self._execute_action(
+            research_action, 
+            queries=[outline.goal]
+        )
+        
+        research_context_for_outline = "No specific research context was gathered."
+        research_result = research_results_by_query.get(outline.goal, {})
+        
+        if research_result.get("status") == "success":
+            answer_data = research_result.get("final_answer") or research_result.get("data")
+            if isinstance(answer_data, (dict, list)):
+                research_context_for_outline = json.dumps(answer_data, indent=2, ensure_ascii=False)
+            else:
+                research_context_for_outline = str(answer_data)
+            logger.success(f"Research successful. Context for outlining:\n{research_context_for_outline[:300]}...")
+        else:
+            failure_reason = research_result.get("reason", "Unknown reason")
+            logger.warning(f"Research failed: {failure_reason}. Proceeding to generate outline without research context.")
+        
+        # --- Outline Creation Phase ---
+        # 【修改】通过类来获取Action实例
+        create_outline_action = self._get_action(CreateSubOutline)
+        if not create_outline_action:
+            raise RuntimeError("CreateSubOutline action not found in ChiefPM.")
+            
         top_level_sections = await self._execute_action(
             create_outline_action, 
             parent_section=None, 
-            goal=outline.goal
+            goal=outline.goal,
+            research_context=research_context_for_outline
         )
         
         outline.root_sections = top_level_sections

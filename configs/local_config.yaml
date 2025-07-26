@@ -75,5 +75,5 @@ role_mcp_bindings:
 
 # (新架构) 层次化文档生成器的特定配置
 hierarchical_doc_writer:
-  max_depth: 2 # 将深度设为3，以观察更多LLM调用
+  max_depth: 1 # 将深度设为3，以观察更多LLM调用
   strong_model_semaphore_limit: 3 # 并发LLM调用的信号量限制
