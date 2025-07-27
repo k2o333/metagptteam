@@ -1,4 +1,4 @@
-# mghier/hierarchical/actions/research.py (最终干净的修复版)
+# mghier/hierarchical/actions/research.py (阶段一最终集成版)
 
 import sys
 import json
@@ -84,11 +84,21 @@ If the gathered information is irrelevant or insufficient to answer the query, p
 """
 
 class Research(Action):
-    # 移除 name 字段的直接赋值，让基类自动处理
     
     def __init__(self, name: str = "", context: Any = None, llm: Any = None):
         super().__init__(name=name, context=context, llm=llm)
-        self.rag_engine: DocRAGEngine = None
+        self.rag_engine: DocRAGEngine | None = None
+
+    def set_docrag_engine(self, engine: DocRAGEngine | None):
+        """
+        一个方法，用于从外部（Role）注入RAG引擎实例。
+        """
+        self.rag_engine = engine
+        if engine:
+            logger.info("DocRAGEngine has been set for the Research action.")
+        else:
+            logger.warning("A null DocRAGEngine was set for the Research action. Internal search will be disabled.")
+
 
     async def _call_mcp_tool(self, tool_call: dict) -> dict:
         """Helper function to call an MCP tool."""
@@ -110,8 +120,14 @@ class Research(Action):
     async def _search_internal_rag(self, query: str) -> dict:
         """Helper function to search the internal RAG."""
         logger.info(f"Searching internal DocRAG for query: '{query}'")
-        rag_response: RAGResponse = await self.rag_engine.search(query)
-        retrieved_content = [node.get_content() for node in rag_response.rag_context.nodes]
+        
+        if not self.rag_engine:
+            logger.warning("Internal DocRAGEngine not available for this search.")
+            return {"status": "failure", "source": "internal_docrag", "reason": "Engine not initialized"}
+            
+        retrieved_nodes = await self.rag_engine.asearch(query, top_k=3)
+        retrieved_content = [node.get_content() for node in retrieved_nodes]
+        
         return {
             "status": "success",
             "source": "internal_docrag",
@@ -129,19 +145,13 @@ class Research(Action):
         return final_answer.strip()
 
     async def run(self, queries: List[str], tool_descriptions: str = "", **kwargs) -> Dict[str, Any]:
-        if not self.rag_engine:
-            if self.context:
-                self.rag_engine = DocRAGEngine(config=self.context.config)
-                logger.info("DocRAGEngine initialized on-demand in run method.")
-            else:
-                raise ValueError("Research Action requires a context to be set before running.")
-
         final_results = {}
         for query in queries:
             logger.info(f"Processing query: '{query}'")
             
             gathered_info = None
 
+            # 默认使用内部RAG，除非有外部工具
             if not tool_descriptions:
                 logger.info("No tool descriptions provided. Defaulting to local DocRAGE.")
                 gathered_info = await self._search_internal_rag(query)
@@ -165,7 +175,7 @@ class Research(Action):
                             "source": "llm_direct_answer",
                             "final_answer": decision.get("answer", "")
                         }
-                        continue
+                        continue # 直接进入下一个query的处理
                     else: 
                         raise ValueError(f"Unknown decision type: {decision_type}")
                 except (json.JSONDecodeError, ValueError, KeyError) as e:

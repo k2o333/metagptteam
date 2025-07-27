@@ -1,87 +1,102 @@
-# mghier/hierarchical/rag/engines/docrag_engine.py (完整重构版)
+# mghier/hierarchical/rag/engines/docrag_engine.py (阶段一最终修复版)
 
-import json
+from __future__ import annotations
+import asyncio
+from pathlib import Path
 from typing import List
 
-from metagpt.rag.interface import RAGObject
-from metagpt.config2 import Config
+from llama_index.core.schema import Document, NodeWithScore
 from metagpt.logs import logger
 from metagpt.rag.engines import SimpleEngine
-from metagpt.rag.factories.embedding import RAGEmbeddingFactory
-from metagpt.rag.schema import FAISSRetrieverConfig, LLMRankerConfig
-from hierarchical.schemas import RAGContext, RAGResponse
-
-class TextObject(RAGObject):
-    """A simple text object that implements the RAGObject protocol."""
-    def __init__(self, text: str):
-        self.text = text
-
-    def rag_key(self) -> str:
-        return self.text
-    
-    def model_dump_json(self) -> str:
-        return json.dumps({"text": self.text})
+from metagpt.rag.retrievers.faiss_retriever import FAISSRetriever
+from metagpt.rag.schema import (
+    FAISSIndexConfig,
+    FAISSRetrieverConfig,
+)
 
 class DocRAGEngine:
     """
-    一个纯粹的本地文档RAG引擎，使用FAISS进行内部检索。
+    一个可持久化的知识库引擎，封装了MetaGPT的SimpleEngine。
+    它专注于提供面向文档存储、增删和清理的高级接口。
+    注意：此类应通过异步工厂方法 from_path() 进行实例化。
     """
-    def __init__(self, config: Config):
-        """
-        初始化 DocRAGEngine。
-        :param config: 全局配置对象，用于初始化嵌入模型。
-        """
-        self.config = config
-        self.embedding_model = RAGEmbeddingFactory(config=config).get_rag_embedding()
-        self.rag_engine: SimpleEngine = self._initialize_rag_engine()
-        logger.info("DocRAGEngine (Local RAG) initialized.")
+    
+    def __init__(self, persist_path: str, rag_engine: SimpleEngine):
+        self.persist_path = Path(persist_path)
+        self.rag_engine = rag_engine
 
-    def _initialize_rag_engine(self) -> SimpleEngine:
+    @classmethod
+    async def from_path(cls, persist_path: str) -> DocRAGEngine:
         """
-        初始化内部的 SimpleEngine，并加载一些示例数据。
+        异步工厂方法，用于创建或加载 DocRAGEngine 实例。
         """
-        retriever_configs = [FAISSRetrieverConfig(similarity_top_k=2)]
-        ranker_configs = [LLMRankerConfig()]
+        path_obj = Path(persist_path)
+        rag_engine: SimpleEngine
+
+        if (path_obj / "default__vector_store.json").exists():
+            logger.info(f"Loading existing DocRAGEngine from {path_obj}...")
+            index_config = FAISSIndexConfig(persist_path=str(path_obj))
+            
+            # 【关键修复】确保在加载时也使用 FAISSRetrieverConfig 来获得正确的、可修改的检索器类型
+            rag_engine = SimpleEngine.from_index(
+                index_config=index_config,
+                retriever_configs=[FAISSRetrieverConfig()]
+            )
+        else:
+            logger.info(f"Creating new DocRAGEngine at {path_obj}...")
+            path_obj.mkdir(parents=True, exist_ok=True)
+            rag_engine = SimpleEngine.from_objs(
+                [],
+                retriever_configs=[FAISSRetrieverConfig()]
+            )
+            temp_instance_for_persist = cls(persist_path, rag_engine)
+            await temp_instance_for_persist.persist()
+            
+        return cls(persist_path, rag_engine)
+
+    async def add_texts(self, texts: list[str], metadatas: list[dict] | None = None):
+        """
+        向知识库中添加新的文本文档。
+        """
+        if not texts:
+            return
         
-        texts = [
-            "示例文档1：DocRAG系统是纯本地的检索增强生成。", 
-            "示例文档2：它使用FAISS在内存中进行相似度搜索。", 
-            "示例文档3：这个引擎不进行任何外部网络调用。"
+        if metadatas and len(texts) != len(metadatas):
+            raise ValueError("The number of texts must match the number of metadatas.")
+
+        documents = [
+            Document(text=t, metadata=m or {}) 
+            for t, m in zip(texts, metadatas or [None] * len(texts))
         ]
-        rag_objects = [TextObject(text=t) for t in texts]
         
-        logger.info("Initializing SimpleEngine with sample local documents.")
-        return SimpleEngine.from_objs(
-            objs=rag_objects,
-            retriever_configs=retriever_configs,
-            ranker_configs=ranker_configs,
-            embed_model=self.embedding_model
-        )
+        # 现在 retriever 必定是 FAISSRetriever，所以它有 add_nodes 方法
+        self.rag_engine.retriever.add_nodes(documents)
+        logger.info(f"Added {len(documents)} new documents to the RAG engine via retriever.")
+        
+        await self.persist()
 
-    async def search(self, query: str) -> RAGResponse:
+    async def persist(self):
         """
-        执行纯粹的本地RAG搜索。
-        
-        :param query: 搜索查询字符串。
-        :return: 包含本地检索结果的 RAGResponse 对象。
+        将当前RAG引擎的状态（包括新添加的文档）保存到磁盘。
         """
-        logger.info(f"DocRAGEngine performing local search for: '{query}'")
-        
-        # 1. 直接使用本地RAG引擎检索
+        retriever = self.rag_engine.retriever
+        if isinstance(retriever, FAISSRetriever) and hasattr(retriever, 'persist'):
+            retriever.persist(persist_dir=str(self.persist_path))
+            logger.success(f"DocRAGEngine state persisted to {self.persist_path}")
+        else:
+            if hasattr(self.rag_engine, 'persist'):
+                self.rag_engine.persist(persist_dir=str(self.persist_path))
+                logger.success(f"DocRAGEngine state persisted via engine.persist to {self.persist_path}")
+            else: 
+                self.rag_engine.storage_context.persist(persist_dir=str(self.persist_path))
+                logger.success(f"DocRAGEngine state persisted via storage_context to {self.persist_path}")
+
+    async def asearch(self, query: str, top_k: int = 3) -> List[NodeWithScore]:
+        """
+        在知识库中进行异步相似度搜索。
+        """
+        if hasattr(self.rag_engine.retriever, 'similarity_top_k'):
+            self.rag_engine.retriever.similarity_top_k = top_k
         retrieved_nodes = await self.rag_engine.aretrieve(query)
-        logger.info(f"DocRAGEngine retrieved {len(retrieved_nodes)} nodes locally.")
-        
-        # 2. 构建 RAGContext
-        # raw_data 为空，因为没有外部数据源
-        rag_context = RAGContext(nodes=retrieved_nodes, raw_data=[]) 
-
-        # 3. 构建 RAGResponse
-        response = RAGResponse(
-            query=query,
-            rag_context=rag_context,
-            response="Placeholder response based on locally retrieved documents.",
-            extra_info={
-                "source": "docrag_local_engine" # 明确来源
-            }
-        )
-        return response
+        logger.info(f"Retrieved {len(retrieved_nodes)} nodes for query: '{query}'")
+        return retrieved_nodes

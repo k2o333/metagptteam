@@ -64,16 +64,27 @@ role_action_pools:
     - "glm4f"
     - "Qwen3-8B"
 
-# MetaGPT 内置的 MCP 服务器绑定（从你的 config2.yaml 复制过来）
-# 这部分配置是给 MetaGPT 框架内置的 MCPClient 使用的，与我们自定义的Context7Adapter无关。
-# 但为了保持所有“角色策略”配置的集中性，将其放置在此处。
+
+
+# MetaGPT 内置的 MCP 服务器绑定
 role_mcp_bindings:
   Executor: 
     - "context7" 
   ChiefPM:
     - "context7"
 
-# (新架构) 层次化文档生成器的特定配置
+# 层次化文档生成器的特定配置
 hierarchical_doc_writer:
-  max_depth: 1 # 将深度设为3，以观察更多LLM调用
-  strong_model_semaphore_limit: 3 # 并发LLM调用的信号量限制
+  max_depth: 1
+  strong_model_semaphore_limit: 3
+
+# 是否启用人工循环
+human_in_loop: false
+
+# 项目工作区和归档路径
+project_path: "/root/metagpt/mgfr/workspace"
+archive_path: "/root/metagpt/mgfr/archive"
+
+
+# 【新增】指定我们持久化的 DocRAG 引擎的路径
+docrag_persist_path: "/root/metagpt/ragdata/ragdata"
