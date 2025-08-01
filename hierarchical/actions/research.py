@@ -1,7 +1,9 @@
-# mghier/hierarchical/actions/research.py (阶段一最终集成版)
+# mghier/hierarchical/actions/research.py (阶段二: ReAct循环与任务记忆)
 
 import sys
 import json
+import uuid
+import shutil
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -15,6 +17,8 @@ sys.path.insert(0, str(METAGPT_ROOT))
 from metagpt.actions import Action
 from metagpt.logs import logger
 from metagpt.utils.common import CodeParser
+from metagpt.schema import Message
+from metagpt.memory.role_zero_memory import RoleZeroLongTermMemory
 
 from hierarchical.rag.engines.docrag_engine import DocRAGEngine 
 from hierarchical.schemas import RAGResponse
@@ -67,6 +71,46 @@ Respond with a single, valid JSON object. Choose one of the following formats:
 Provide ONLY the JSON object in your response.
 """
 
+# ReAct循环中使用的Prompt模板
+REACT_PROMPT = """
+You are an expert research assistant using a ReAct (Reasoning + Action) framework. Based on the original goal and the information gathered so far, decide on the next best action.
+
+**Original Goal:**
+"{original_goal}"
+
+**Available Tools:**
+{available_tools}
+
+**Information Gathered So Far (Scratchpad):**
+{scratchpad}
+
+Based on the information above, think about what to do next and then decide on an action. Respond with a single, valid JSON object. Choose one of the following formats:
+
+1.  To use a tool:
+    ```json
+    {{
+      "thought": "<Your reasoning about what to do next>",
+      "action": {{
+        "tool_name": "<tool_name>",
+        "tool_args": {{...}}
+      }}
+    }}
+    ```
+
+2.  To finish the task:
+    ```json
+    {{
+      "thought": "<Your final reasoning>",
+      "action": {{
+        "tool_name": "FINISH",
+        "result": "<The final result of your research>"
+      }}
+    }}
+    ```
+
+Provide ONLY the JSON object in your response.
+"""
+
 # 用于总结的Prompt模板
 SYNTHESIS_PROMPT_TEMPLATE = """
 You are a research analyst. Your task is to provide a concise and helpful answer to the user's original query based on the information you have gathered.
@@ -88,6 +132,11 @@ class Research(Action):
     def __init__(self, name: str = "", context: Any = None, llm: Any = None):
         super().__init__(name=name, context=context, llm=llm)
         self.rag_engine: DocRAGEngine | None = None
+        # 确保llm属性被正确设置
+        if llm is None and not hasattr(self, 'llm'):
+            # 如果既没有提供llm，父类也没有设置llm，则设置为None
+            # 这样会使用Action类的默认行为
+            self.llm = None
 
     def set_docrag_engine(self, engine: DocRAGEngine | None):
         """
@@ -134,6 +183,45 @@ class Research(Action):
             "raw_data": { "retrieved_data": retrieved_content }
         }
 
+    def _parse_thought_action(self, decision_str: str) -> tuple[str, dict]:
+        """解析LLM的决策字符串，提取thought和action。"""
+        try:
+            # 首先尝试使用CodeParser解析
+            try:
+                decision_json_str = CodeParser.parse_code(text=decision_str, lang="json")
+                decision = json.loads(decision_json_str)
+            except:
+                # 如果CodeParser失败，尝试直接解析JSON
+                decision = json.loads(decision_str)
+            
+            thought = decision.get("thought", "")
+            action = decision.get("action", {})
+            return thought, action
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            logger.error(f"Failed to parse LLM decision: {e}")
+            logger.error(f"Decision string: {decision_str}")
+            raise
+
+    async def _execute_tool(self, action: dict) -> str:
+        """执行工具调用并返回观察结果。"""
+        tool_name = action.get("tool_name")
+        tool_args = action.get("tool_args", {})
+        
+        if tool_name == "FINISH":
+            return action.get("result", "Task completed.")
+        
+        logger.info(f"Executing tool '{tool_name}' with args: {tool_args}")
+        try:
+            # 直接调用MCP工具，不需要前缀
+            if hasattr(self.context, 'mcp_manager'):
+                result_str = await self.context.mcp_manager.call_tool(tool_name, tool_args)
+                return result_str
+            else:
+                return f"No MCP manager available for tool: {tool_name}"
+        except Exception as e:
+            logger.error(f"Tool '{tool_name}' execution failed: {e}", exc_info=True)
+            return f"Error executing tool '{tool_name}': {str(e)}"
+
     async def _synthesize_answer(self, query: str, context_data: Any) -> str:
         """使用LLM将收集到的上下文数据总结成最终答案。"""
         logger.info("Synthesizing final answer from gathered information.")
@@ -146,56 +234,123 @@ class Research(Action):
 
     async def run(self, queries: List[str], tool_descriptions: str = "", **kwargs) -> Dict[str, Any]:
         final_results = {}
+        
         for query in queries:
-            logger.info(f"Processing query: '{query}'")
+            logger.info(f"Processing query with ReAct cycle: '{query}'")
             
-            gathered_info = None
-
-            # 默认使用内部RAG，除非有外部工具
-            if not tool_descriptions:
-                logger.info("No tool descriptions provided. Defaulting to local DocRAGE.")
-                gathered_info = await self._search_internal_rag(query)
-            else:
-                prompt = DECISION_PROMPT_TEMPLATE.format(query=query, tool_descriptions=tool_descriptions)
-                response_str = await self._aask(prompt)
+            # 生成唯一的任务ID
+            task_id = f"research_task_{uuid.uuid4().hex}"
+            temp_memory_path = f"./.tmp_task_memories/{task_id}"
+            task_memory = None
+            
+            try:
+                # 动态实例化一个任务级别的记忆系统
+                task_memory = RoleZeroLongTermMemory(
+                    persist_path=temp_memory_path,
+                    collection_name=task_id,
+                    memory_k=5  # 使用较低的memory_k，因为我们希望观察结果尽快进入RAG
+                )
                 
-                try:
-                    decision_json_str = CodeParser.parse_code(text=response_str, lang="json")
-                    decision = json.loads(decision_json_str)
-                    logger.debug(f"LLM decision for query '{query}': {decision}")
-                    decision_type = decision.get("decision")
-
-                    if decision_type == "use_tool":
-                        gathered_info = await self._call_mcp_tool(decision.get("tool_call", {}))
-                    elif decision_type == "use_internal_rag":
-                        gathered_info = await self._search_internal_rag(query)
-                    elif decision_type == "direct_answer":
-                        final_results[query] = {
-                            "status": "success",
-                            "source": "llm_direct_answer",
-                            "final_answer": decision.get("answer", "")
-                        }
-                        continue # 直接进入下一个query的处理
-                    else: 
-                        raise ValueError(f"Unknown decision type: {decision_type}")
-                except (json.JSONDecodeError, ValueError, KeyError) as e:
-                    logger.warning(f"Failed to parse LLM decision. Defaulting to internal RAG. Error: {e}")
-                    gathered_info = await self._search_internal_rag(query)
-            
-            if gathered_info and gathered_info.get("status") == "success":
-                final_answer = await self._synthesize_answer(query, gathered_info.get("raw_data"))
+                # 构建工具描述信息
+                tools_info = {}
+                if tool_descriptions:
+                    # 解析工具描述，构建工具映射
+                    tools_info = self._parse_tool_descriptions(tool_descriptions)
+                
+                # 开始ReAct循环
+                max_react_loops = kwargs.get('max_react_loops', 10)
+                final_result = await self._run_react_cycle(
+                    query, task_memory, tools_info, max_react_loops
+                )
+                
+                final_results[query] = final_result
+                
+            except Exception as e:
+                logger.error(f"ReAct cycle failed for query '{query}': {e}", exc_info=True)
                 final_results[query] = {
-                    "status": "success", 
-                    "source": gathered_info.get("source"),
-                    "final_answer": final_answer, 
-                    "raw_data": gathered_info.get("raw_data")
+                    "status": "failure",
+                    "source": "react_cycle",
+                    "final_answer": "ReAct research failed.",
+                    "reason": str(e)
                 }
-            else:
-                final_results[query] = {
-                    "status": "failure", 
-                    "source": gathered_info.get("source", "unknown"),
-                    "final_answer": "Failed to gather information to answer the query.",
-                    "reason": gathered_info.get("reason", "Unknown error")
-                }
+                
+            finally:
+                # 确保在任务结束时清理临时记忆文件
+                if temp_memory_path and Path(temp_memory_path).exists():
+                    shutil.rmtree(temp_memory_path)
+                    logger.info(f"Cleaned up temporary task memory at {temp_memory_path}")
         
         return final_results
+
+    def _parse_tool_descriptions(self, tool_descriptions: str) -> Dict[str, str]:
+        """解析工具描述字符串，构建工具映射。"""
+        # 这里可以根据实际的工具描述格式进行解析
+        # 暂时返回一个简单的映射
+        tools = {}
+        lines = tool_descriptions.strip().split('\n')
+        for line in lines:
+            if line.strip():
+                # 简单的解析逻辑，假设每行包含工具名称和描述
+                if ':' in line:
+                    name, desc = line.split(':', 1)
+                    tools[name.strip()] = desc.strip()
+        return tools
+
+    async def _run_react_cycle(self, query: str, task_memory: RoleZeroLongTermMemory, 
+                              tools_info: Dict[str, str], max_loops: int) -> Dict[str, Any]:
+        """执行ReAct循环的核心逻辑。"""
+        logger.info(f"Starting ReAct cycle for query: '{query}'")
+        
+        for i in range(max_loops):
+            try:
+                # 1. 从TaskMemory获取动态上下文/历史
+                history_messages = task_memory.get()
+                scratchpad = "\n".join([
+                    f"Step {j+1}: {msg.content}" for j, msg in enumerate(history_messages)
+                ])
+                
+                # 2. 构建思考的Prompt
+                prompt = REACT_PROMPT.format(
+                    original_goal=query,
+                    available_tools="\n".join([f"{name}: {desc}" for name, desc in tools_info.items()]),
+                    scratchpad=scratchpad
+                )
+                
+                # 3. LLM 思考并决定下一步行动
+                decision_str = await self._aask(prompt)
+                thought, action = self._parse_thought_action(decision_str)
+                
+                # 4. 执行行动并获取观察结果
+                observation = await self._execute_tool(action)
+                
+                # 5. 将观察结果存入TaskMemory
+                observation_msg = Message(
+                    content=f"Thought: {thought}\nAction: {json.dumps(action)}\nObservation: {observation}"
+                )
+                task_memory.add(observation_msg)
+                
+                # 6. 检查是否结束
+                if action.get("tool_name") == "FINISH":
+                    logger.info(f"ReAct cycle completed after {i+1} steps")
+                    return {
+                        "status": "success",
+                        "source": "react_cycle",
+                        "final_answer": observation,
+                        "steps_taken": i + 1
+                    }
+                
+            except Exception as e:
+                logger.error(f"ReAct step {i+1} failed: {e}", exc_info=True)
+                # 将错误信息存入记忆中，以便LLM在下一步可以处理
+                error_msg = Message(
+                    content=f"Step {i+1} failed with error: {str(e)}"
+                )
+                task_memory.add(error_msg)
+        
+        # 达到最大循环次数仍未完成
+        return {
+            "status": "failure",
+            "source": "react_cycle",
+            "final_answer": "ReAct cycle reached maximum iterations without completion.",
+            "steps_taken": max_loops
+        }
