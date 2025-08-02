@@ -4,8 +4,9 @@ import sys
 import json
 import uuid
 import shutil
+import re
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Tuple
 
 # --- 路径设置 ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -80,6 +81,10 @@ You are an expert research assistant using a ReAct (Reasoning + Action) framewor
 
 **Available Tools:**
 {available_tools}
+
+**Important Notes for Tool Usage:**
+- When using the 'resolve-library-id' tool, you MUST provide the 'libraryName' argument (not 'query').
+- When using the 'get-library-docs' tool, you MUST provide the 'context7CompatibleLibraryID' argument (not 'library_id').
 
 **Information Gathered So Far (Scratchpad):**
 {scratchpad}
@@ -184,23 +189,269 @@ class Research(Action):
         }
 
     def _parse_thought_action(self, decision_str: str) -> tuple[str, dict]:
-        """解析LLM的决策字符串，提取thought和action。"""
+        """解析LLM的决策字符串，提取thought和action。使用多种策略处理不同的LLM输出格式。"""
+        
+        # Strategy 1: Try CodeParser first (handles markdown-wrapped JSON)
         try:
-            # 首先尝试使用CodeParser解析
-            try:
-                decision_json_str = CodeParser.parse_code(text=decision_str, lang="json")
+            decision_json_str = CodeParser.parse_code(text=decision_str)
+            if decision_json_str != decision_str:  # CodeParser found and extracted JSON
                 decision = json.loads(decision_json_str)
-            except:
-                # 如果CodeParser失败，尝试直接解析JSON
-                decision = json.loads(decision_str)
-            
+                thought = decision.get("thought", "")
+                action = decision.get("action", {})
+                return thought, action
+        except Exception as e:
+            logger.debug(f"CodeParser failed: {e}, trying alternative parsing methods")
+        
+        # Strategy 2: Try to find and extract JSON object from mixed text
+        json_match = self._extract_json_from_mixed_text(decision_str)
+        if json_match:
+            try:
+                decision = json.loads(json_match)
+                
+                # Case 1: JSON contains both thought and action (standard format)
+                if "thought" in decision and "action" in decision:
+                    thought = decision.get("thought", "")
+                    action = decision.get("action", {})
+                    return thought, action
+                
+                # Case 2: JSON contains only action (mixed text format)
+                elif "tool_name" in decision or "action" in decision:
+                    thought = self._extract_thought_from_text(decision_str, json_match)
+                    # If the JSON has an "action" key, use it; otherwise assume the JSON itself is the action
+                    if "action" in decision:
+                        action = decision.get("action", {})
+                    else:
+                        action = decision
+                    return thought, action
+                
+                # Case 3: JSON contains only thought (unusual but possible)
+                elif "thought" in decision:
+                    thought = decision.get("thought", "")
+                    action = {}
+                    return thought, action
+                    
+            except json.JSONDecodeError as e:
+                logger.debug(f"Extracted JSON parsing failed: {e}")
+        
+        # Strategy 3: Try to parse Action JSON from common patterns
+        action_match = self._extract_action_from_patterns(decision_str)
+        if action_match:
+            try:
+                action = json.loads(action_match)
+                # Extract thought from surrounding text
+                thought = self._extract_thought_from_text(decision_str, action_match)
+                return thought, action
+            except json.JSONDecodeError as e:
+                logger.debug(f"Action pattern parsing failed: {e}")
+        
+        # Strategy 4: Parse manually by splitting text and looking for Action section
+        thought, action = self._manual_parse_text_format(decision_str)
+        if action:
+            return thought, action
+        
+        # Strategy 5: Last resort - try to parse entire string as JSON
+        try:
+            decision = json.loads(decision_str.strip())
             thought = decision.get("thought", "")
             action = decision.get("action", {})
             return thought, action
         except (json.JSONDecodeError, ValueError, KeyError) as e:
-            logger.error(f"Failed to parse LLM decision: {e}")
+            logger.error(f"All JSON parsing strategies failed: {e}")
             logger.error(f"Decision string: {decision_str}")
             raise
+
+    def _extract_json_from_mixed_text(self, text: str) -> Optional[str]:
+        """从混合文本中提取JSON对象。使用简单的平衡括号匹配方法。"""
+        
+        def find_json_object(s: str, start_pos: int = 0) -> Optional[str]:
+            """从指定位置开始查找JSON对象。"""
+            brace_count = 0
+            start_idx = -1
+            
+            for i in range(start_pos, len(s)):
+                char = s[i]
+                if char == '{':
+                    if brace_count == 0:
+                        start_idx = i
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0 and start_idx != -1:
+                        # Found a complete JSON object
+                        json_str = s[start_idx:i+1]
+                        try:
+                            json.loads(json_str)  # Validate it's valid JSON
+                            return json_str
+                        except json.JSONDecodeError:
+                            continue
+            
+            return None
+        
+        # Try to find JSON objects throughout the text
+        for i in range(len(text)):
+            if text[i] == '{':
+                json_match = find_json_object(text, i)
+                if json_match:
+                    return json_match
+        
+        # If no balanced JSON found, try pattern-based extraction as fallback
+        # Look for objects with "thought" and "action" keys
+        thought_action_pattern = r'\{[^}]*"thought"[^}]*"action"[^}]*\}'
+        match = re.search(thought_action_pattern, text, re.DOTALL)
+        if match:
+            try:
+                json.loads(match.group(0))
+                return match.group(0)
+            except json.JSONDecodeError:
+                pass
+        
+        # Look for objects with "tool_name" key
+        tool_pattern = r'\{[^}]*"tool_name"[^}]*\}'
+        match = re.search(tool_pattern, text, re.DOTALL)
+        if match:
+            try:
+                json.loads(match.group(0))
+                return match.group(0)
+            except json.JSONDecodeError:
+                pass
+        
+        return None
+
+    def _extract_action_from_patterns(self, text: str) -> Optional[str]:
+        """从常见模式中提取Action JSON。"""
+        # Pattern 1: Look for "Action: { ... }" pattern
+        action_pattern = r'Action:\s*(\{[^}]*\})'
+        match = re.search(action_pattern, text, re.DOTALL)
+        if match:
+            return match.group(1)
+        
+        # Pattern 2: Look for action-like JSON with tool_name
+        tool_pattern = r'\{[^}]*"tool_name"[^}]*\}'
+        match = re.search(tool_pattern, text, re.DOTALL)
+        if match:
+            return match.group(1)
+        
+        # Pattern 3: Look for FINISH action
+        finish_pattern = r'\{[^}]*"tool_name"\s*:\s*"FINISH"[^}]*\}'
+        match = re.search(finish_pattern, text, re.DOTALL)
+        if match:
+            return match.group(1)
+        
+        return None
+
+    def _extract_thought_from_text(self, text: str, json_part: str) -> str:
+        """从文本中提取thought，排除JSON部分。"""
+        # Remove the JSON part from the text
+        text_without_json = text.replace(json_part, '').strip()
+        
+        # Look for thought patterns
+        thought_patterns = [
+            r'Thought:\s*(.*?)(?=\nAction:|\n\n|$)',
+            r'(?:Step\s*\d+:\s*)?Thought:\s*(.*?)(?=\nAction:|\n\n|$)',
+            r'(?:Step\s*\d+:\s*)?(.*?)(?=\nAction:)'
+        ]
+        
+        for pattern in thought_patterns:
+            match = re.search(pattern, text_without_json, re.DOTALL | re.IGNORECASE)
+            if match:
+                thought = match.group(1).strip()
+                # Remove "Step X: Thought:" prefix if present
+                thought = re.sub(r'^Step\s*\d+:\s*Thought:\s*', '', thought, flags=re.IGNORECASE)
+                return thought
+        
+        # Fallback: return the text before the Action section
+        lines = text_without_json.split('\n')
+        thought_lines = []
+        for line in lines:
+            line = line.strip()
+            if line.lower().startswith('action:'):
+                break
+            if line and not line.lower().startswith('step'):
+                thought_lines.append(line)
+        
+        return ' '.join(thought_lines).strip()
+
+    def _manual_parse_text_format(self, text: str) -> Tuple[str, dict]:
+        """手动解析文本格式，提取thought和action。"""
+        lines = text.split('\n')
+        thought = ""
+        action_str = ""
+        found_action = False
+        
+        # First pass: Extract thought
+        for line in lines:
+            line = line.strip()
+            if line.lower().startswith('thought:'):
+                thought = line[len('Thought:'):].strip()
+                break
+            elif line.lower().startswith('step') and 'thought:' in line.lower():
+                # Handle "Step X: Thought: ..." format
+                parts = line.split('Thought:', 1)
+                if len(parts) > 1:
+                    thought = parts[1].strip()
+                    break
+        
+        # Second pass: Extract action
+        action_line_patterns = [
+            r'^Action:\s*(\{.*\})$',
+            r'^.*Action:\s*(\{.*\})$',
+            r'^(\{.*"tool_name".*\})$'
+        ]
+        
+        for line in lines:
+            line = line.strip()
+            for pattern in action_line_patterns:
+                match = re.match(pattern, line, re.DOTALL)
+                if match:
+                    action_str = match.group(1)
+                    found_action = True
+                    break
+            if found_action:
+                break
+        
+        # If no action found in single line, look for multi-line JSON
+        if not action_str:
+            # Look for Action: followed by JSON on next lines
+            action_start = -1
+            for i, line in enumerate(lines):
+                if line.strip().lower().startswith('action:'):
+                    action_start = i + 1
+                    break
+            
+            if action_start >= 0 and action_start < len(lines):
+                # Collect all subsequent lines that look like JSON
+                json_lines = []
+                for i in range(action_start, len(lines)):
+                    line = lines[i].strip()
+                    if line and (line.startswith('{') or '}' in line or line.startswith('"') or line.startswith(' ')):
+                        json_lines.append(line)
+                    elif json_lines:  # Stop if we hit a non-JSON line after starting JSON
+                        break
+                
+                if json_lines:
+                    action_str = ''.join(json_lines)
+        
+        # Try to parse action_str as JSON
+        if action_str:
+            try:
+                action = json.loads(action_str)
+                return thought, action
+            except json.JSONDecodeError:
+                pass
+        
+        # Final fallback: Try to find any JSON object in the text
+        json_match = self._extract_json_from_mixed_text(text)
+        if json_match:
+            try:
+                action = json.loads(json_match)
+                # If thought is empty, extract it from text
+                if not thought:
+                    thought = self._extract_thought_from_text(text, json_match)
+                return thought, action
+            except json.JSONDecodeError:
+                pass
+        
+        return "", {}
 
     async def _execute_tool(self, action: dict) -> str:
         """执行工具调用并返回观察结果。"""
