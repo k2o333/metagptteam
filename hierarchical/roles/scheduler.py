@@ -16,6 +16,7 @@ from hierarchical.roles.base_role import HierarchicalBaseRole
 from hierarchical.schemas import Outline, Section, SectionBatch
 from hierarchical.roles.chief_pm import ChiefPM
 from hierarchical.actions import CreateSubOutline, CompleteAllTasks
+from hierarchical.actions.assess_subdivision import AssessSubdivision
 
 class Scheduler(HierarchicalBaseRole):
     """
@@ -28,8 +29,9 @@ class Scheduler(HierarchicalBaseRole):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([CreateSubOutline(), CompleteAllTasks()])
-        self._watch([ChiefPM, "hierarchical.roles.executor.Executor"]) 
+        self.set_actions([CreateSubOutline(), CompleteAllTasks(), AssessSubdivision()])
+        self._watch([ChiefPM, "hierarchical.roles.executor.Executor"])
+        self._current_assessment_section = None 
 
     def _get_sections_by_status(self, status: str) -> List[Section]:
         if not hasattr(self.context, 'outline') or not self.context.outline: return []
@@ -68,9 +70,10 @@ class Scheduler(HierarchicalBaseRole):
         sorted_completed = sorted(all_completed, key=lambda s: (s.level, s.display_id))
         for section in sorted_completed:
             if not section.sub_sections and section.level < max_depth:
-                section.status = "PENDING_SUBDIVIDE"
-                self.rc.todo = "MARK_SUBDIVIDE_DONE" 
-                logger.debug(f"Scheduler thinking: Found a COMPLETED section to deepen. TODO set to: {self.rc.todo}")
+                # Instead of directly marking for subdivision, assess if it should be subdivided
+                self.rc.todo = self.actions[2]  # AssessSubdivision is the third action
+                self._current_assessment_section = section
+                logger.debug(f"Scheduler thinking: Found a COMPLETED section to assess for subdivision. TODO set to: {self.rc.todo.name}")
                 return True
 
         if self.rc.news:
@@ -116,6 +119,44 @@ class Scheduler(HierarchicalBaseRole):
             target_section.sub_sections = sub_sections
             target_section.status = "COMPLETED"
             return Message(content="Sub-outline created.", role=self.profile, send_to="Scheduler")
+
+        elif isinstance(self.rc.todo, AssessSubdivision):
+            if not self._current_assessment_section:
+                return Message(content="No section to assess.", role=self.profile, send_to="Scheduler")
+            
+            # Gather information for assessment
+            chapter_title = self._current_assessment_section.title
+            chapter_content = getattr(self._current_assessment_section, 'content', '')
+            
+            # Get parent context
+            parent_context = ""
+            if self._current_assessment_section.parent:
+                parent_context = self._current_assessment_section.parent.content
+            
+            # Get research summary (this would need to be retrieved from somewhere)
+            research_summary = getattr(self._current_assessment_section, 'research_summary', '')
+            
+            logger.info(f"Assessing subdivision for section: {chapter_title}")
+            
+            assessment_result = await self._execute_action(
+                self.rc.todo,
+                chapter_title=chapter_title,
+                chapter_content=chapter_content,
+                parent_context=parent_context,
+                research_summary=research_summary
+            )
+            
+            # Handle assessment result
+            if assessment_result.get("should_subdivide"):
+                self._current_assessment_section.status = "PENDING_SUBDIVIDE"
+                logger.info(f"Section '{chapter_title}' marked for subdivision. Reason: {assessment_result.get('reason')}")
+            else:
+                logger.info(f"Section '{chapter_title}' will not be subdivided. Reason: {assessment_result.get('reason')}")
+            
+            # Clear the current assessment section
+            self._current_assessment_section = None
+            
+            return Message(content="Section assessment completed.", role=self.profile, send_to="Scheduler")
 
         elif isinstance(self.rc.todo, CompleteAllTasks):
             # CompleteAllTasks 不调用LLM，直接 run 即可

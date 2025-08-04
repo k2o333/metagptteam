@@ -18,9 +18,9 @@ role_default_pools:
 role_action_pools:
   # ChiefPM 的 Actions
   ChiefPM-CreateSubOutline:
-    - "glm4f"  
+    - "mistral-large"   # 顶级的推理和长上下文模型
     - "mistral-medium"  # 核心规划，确保高质量
-    - "gemini-2.5-flash-lite" # 备用高推理模型
+    - "gemini-2.0-flash" 
   
   # Scheduler 的 Actions
   # Scheduler-CreateSubOutline 会被 ChiefPM-CreateSubOutline 覆盖，因为它们可能调用同一个Action
@@ -33,7 +33,7 @@ role_action_pools:
   Scheduler-CompleteAllTasks: # 这个 Action 通常不需要 LLM，但为完整性保留
     - "glmz1f" # 如果需要LLM，用最快的
     - "mistral-small"      # 次一级但快速的写作模型，用于负载均衡
-    - "gemini-2.5-flash-lite" 
+    - "gemini-2.0-flash" 
 
   # Executor 的 Actions
   Executor-WriteSection:
@@ -42,7 +42,6 @@ role_action_pools:
     - "Qwen3-8B"            # 快速且经济的备用模型
     
   Executor-ReviewSection: # 评审需要高精度和批判性思维
-    - "gemini-2.5-flash"   # 顶级的推理和长上下文模型
     - "magistral-medium"    # 备用高质量模型
     - "glmz1f" # 如果需要LLM，用最快的
     - "DeepSeek-R1-0528-Qwen3-8B" 
@@ -55,12 +54,12 @@ role_action_pools:
   # Research Action (通常由 ChiefPM 或 Executor 调用)
   # ChiefPM 的 Research Action
   ChiefPM-Research:
-    - "gemini-2.5-flash-lite" # 研究查询，需要快速且能处理大量信息
+    - "gemini-2.0-flash" 
     - "glm4f"                 # 快速备用
     - "magistral-medium"   
   # Executor 的 Research Action (如果 Executor 也要做研究)
   Executor-Research:
-    - "gemini-2.5-flash-lite"
+    - "gemini-2.0-flash" 
     - "glm4f"
     - "Qwen3-8B"
 
@@ -88,3 +87,88 @@ archive_path: "/root/metagpt/mgfr/archive"
 
 # 【新增】指定我们持久化的 DocRAG 引擎的路径
 docrag_persist_path: "/root/metagpt/ragdata/ragdata"
+
+# 【新增】经验池配置 - 用于知识沉淀
+exp_pool:
+  enabled: true
+  enable_read: true
+  enable_write: true
+  persist_path: .mghier_exp_pool
+  retrieval_type: bm25
+  use_llm_ranker: true
+
+# 【新增】Research Action 配置
+research:
+  # 提示词模板配置
+  prompt_templates:
+    # 系统提示词 - 基础版本
+    base_system_prompt: |
+      You are an expert research assistant using a ReAct (Reasoning + Action) framework.
+      Your goal is to systematically gather and analyze information to answer the user's question.
+      
+      # Available Tools:
+      {available_tools}
+      
+      # Important Rules:
+      1. ONLY use tools listed above. Do NOT invent or assume tools exist.
+      2. Use JSON format for ALL responses.
+      3. When analyzing documentation, use the FINISH tool with your analysis result.
+      4. Be concise and focused on the original question.
+      
+      # Original Goal:
+      {original_goal}
+    
+    # 工具指令模板
+    tool_instruction_template: |
+      **Available Tools:**
+      {available_tools}
+      
+      **Important Notes for Tool Usage:**
+      - When using the 'resolve-library-id' tool, you MUST provide the 'libraryName' argument.
+      - When using the 'get-library-docs' tool, you MUST provide the 'context7CompatibleLibraryID' argument.
+      - When you have gathered sufficient information, use the FINISH tool with your analysis result.
+      - DO NOT use tools like 'parse-documentation', 'MANUAL_ANALYSIS', or 'ANALYZE' - they don't exist.
+    
+    # 完成指令模板
+    completion_instruction: |
+      Based on the information gathered, provide a comprehensive answer to the original question.
+      Structure your response clearly and cite specific information from the documentation when relevant.
+  
+  # JSON解析配置
+  json_parsing:
+    # 最大重试次数
+    max_retry_attempts: 3
+    # 是否启用严格的JSON验证
+    strict_validation: true
+    # 备用解析策略
+    fallback_strategies:
+      - code_parser
+      - regex_extraction
+      - manual_clean
+    
+  # 工具验证配置
+  tool_validation:
+    # 是否启用工具验证
+    enabled: true
+    # 是否在工具不存在时提供替代方案
+    provide_alternatives: true
+    # 允许的工具列表（如果为空，则使用MCP服务器返回的工具）
+    allowed_tools: []
+  
+  # 内置分析工具配置
+  builtin_tools:
+    # 是否启用内置文档分析
+    enable_document_analysis: true
+    # 文档分析提示词
+    document_analysis_prompt: |
+      Analyze the following documentation content and extract key information about roles and actions.
+      
+      Documentation content:
+      {documentation_content}
+      
+      Focus on:
+      1. What are the main roles in this system?
+      2. What are the key actions or functions?
+      3. How do roles and actions interact?
+      
+      Provide a structured analysis with specific examples from the documentation.
