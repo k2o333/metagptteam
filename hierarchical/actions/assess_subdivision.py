@@ -2,6 +2,7 @@ import sys
 import json
 from pathlib import Path
 from typing import Any, Dict
+import re
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 METAGPT_ROOT = PROJECT_ROOT.parent / "metagpt"
@@ -11,11 +12,12 @@ sys.path.insert(0, str(METAGPT_ROOT))
 from metagpt.actions import Action
 from metagpt.logs import logger
 
+
 class AssessSubdivision(Action):
     def __init__(self, name: str = "assess_subdivision", context: Any = None, llm: Any = None):
         super().__init__(name=name, context=context, llm=llm)
 
-    async def run(self, chapter_title: str, chapter_content: str, parent_context: str, research_summary: str) -> Dict[str, Any]:
+    async def run(self, chapter_title: str, chapter_content: str, parent_context: str, research_summary: str, **kwargs) -> Dict[str, Any]:
         prompt = f"""
 You are an intelligent document outline assessor. Your task is to determine if a given chapter should be further subdivided into sub-chapters.
 
@@ -38,16 +40,16 @@ Respond with a JSON object in the format: {{"should_subdivide": true/false, "rea
         decision_str = await self._aask(prompt)
         
         try:
-            # 尝试从markdown代码块中提取JSON
-            if decision_str.strip().startswith("```json") and decision_str.strip().endswith("```"):
-                json_str = decision_str.strip()[len("```json\n"):-len("\n```")].strip()
+            # Try to extract JSON from the response
+            json_match = re.search(r'\{.*\}', decision_str, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                decision = json.loads(json_str)
+                if "should_subdivide" not in decision or "reason" not in decision:
+                    raise ValueError("Invalid JSON response from LLM.")
+                return decision
             else:
-                json_str = decision_str.strip()
-
-            decision = json.loads(json_str)
-            if "should_subdivide" not in decision or "reason" not in decision:
-                raise ValueError("Invalid JSON response from LLM.")
-            return decision
+                raise ValueError("No JSON found in LLM response.")
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}. Response: {decision_str}")
             return {"should_subdivide": False, "reason": f"LLM returned invalid JSON: {decision_str}"}

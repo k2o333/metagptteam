@@ -8,6 +8,7 @@ from metagpt.logs import logger
 from metagpt.roles import Role
 from metagpt.provider.llm_provider_registry import create_llm_instance
 from metagpt.configs.models_config import ModelsConfig
+# Import directly from the utils module to avoid circular import
 from hierarchical.utils import get_llm_pool_for_action
 
 class HierarchicalBaseRole(Role):
