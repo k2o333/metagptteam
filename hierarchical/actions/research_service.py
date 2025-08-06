@@ -139,6 +139,11 @@ class ToolExecutionService:
     def __init__(self, config: ResearchConfig):
         self.config = config
         self.context7_service = Context7MCPService(config.context7_config)
+        # 获取工具重试配置
+        self.tool_retry_config = config.tool_retry_config or {
+            "max_retry_attempts": 3,
+            "retry_models": ["gemini-2.0-flash", "glm4f", "magistral-medium", "Qwen3-8B"]
+        }
     
     async def execute_tool(self, action: Dict[str, Any], mcp_manager, query: str) -> str:
         """执行工具调用，包含Context7智能处理"""
@@ -151,53 +156,65 @@ class ToolExecutionService:
         logger.info(f"Executing tool '{tool_name}' with args: {tool_args}")
         start_time = time.time()
         
-        try:
-            # 工具验证
-            validation_result = self._validate_tool_execution(tool_name, tool_args, mcp_manager)
-            if not validation_result["valid"]:
-                return validation_result["error"]
-            
-            # Context7特殊处理
-            if tool_name == "resolve-library-id":
-                library_name = tool_args.get("libraryName", "")
-                if not library_name:
-                    # 如果没有提供库名称，尝试从查询中提取
-                    library_name = self._extract_library_name_from_query(query)
+        # 尝试执行工具，包含重试机制
+        max_retry_attempts = self.tool_retry_config.get("max_retry_attempts", 3)
+        retry_models = self.tool_retry_config.get("retry_models", [])
+        
+        for attempt in range(max_retry_attempts):
+            try:
+                # 工具验证
+                validation_result = self._validate_tool_execution(tool_name, tool_args, mcp_manager)
+                if not validation_result["valid"]:
+                    return validation_result["error"]
                 
-                result = await self.context7_service.resolve_library_id(mcp_manager, library_name)
-                return json.dumps(result.__dict__, ensure_ascii=False)
-            
-            elif tool_name == "get-library-docs":
-                library_id = tool_args.get("context7CompatibleLibraryID", "")
-                topic = tool_args.get("topic")
-                tokens = tool_args.get("tokens")
-                
-                # 如果没有提供库ID，尝试先解析
-                if not library_id:
-                    library_name = self._extract_library_name_from_query(query)
-                    if library_name:
-                        resolve_result = await self.context7_service.resolve_library_id(mcp_manager, library_name)
-                        if resolve_result.is_success():
-                            library_id = resolve_result.resolved_id
-                
-                if library_id:
-                    result = await self.context7_service.get_library_docs(mcp_manager, library_id, topic, tokens)
-                    execution_time = time.time() - start_time
-                    logger.info(f"Tool execution completed in {execution_time:.2f}s")
+                # Context7特殊处理
+                if tool_name == "resolve-library-id":
+                    library_name = tool_args.get("libraryName", "")
+                    if not library_name:
+                        # 如果没有提供库名称，尝试从查询中提取
+                        library_name = self._extract_library_name_from_query(query)
+                    
+                    result = await self.context7_service.resolve_library_id(mcp_manager, library_name)
                     return json.dumps(result.__dict__, ensure_ascii=False)
+                
+                elif tool_name == "get-library-docs":
+                    library_id = tool_args.get("context7CompatibleLibraryID", "")
+                    topic = tool_args.get("topic")
+                    tokens = tool_args.get("tokens")
+                    
+                    # 如果没有提供库ID，尝试先解析
+                    if not library_id:
+                        library_name = self._extract_library_name_from_query(query)
+                        if library_name:
+                            resolve_result = await self.context7_service.resolve_library_id(mcp_manager, library_name)
+                            if resolve_result.is_success():
+                                library_id = resolve_result.resolved_id
+                    
+                    if library_id:
+                        result = await self.context7_service.get_library_docs(mcp_manager, library_id, topic, tokens)
+                        execution_time = time.time() - start_time
+                        logger.info(f"Tool execution completed in {execution_time:.2f}s")
+                        return json.dumps(result.__dict__, ensure_ascii=False)
+                    else:
+                        return "Error: Cannot determine library ID for get-library-docs. Please provide a valid library ID or library name."
+                
+                # 其他工具调用
+                result_str = await mcp_manager.call_tool(tool_name, tool_args)
+                execution_time = time.time() - start_time
+                logger.info(f"Tool execution completed in {execution_time:.2f}s")
+                return result_str
+                
+            except Exception as e:
+                execution_time = time.time() - start_time
+                logger.error(f"Tool '{tool_name}' execution failed after {execution_time:.2f}s: {e}")
+                
+                # 如果不是最后一次尝试，记录重试信息
+                if attempt < max_retry_attempts - 1:
+                    logger.info(f"Retrying tool '{tool_name}' (attempt {attempt + 1}/{max_retry_attempts})")
+                    # 可以在这里添加延迟或其他重试逻辑
+                    continue
                 else:
-                    return "Error: Cannot determine library ID for get-library-docs. Please provide a valid library ID or library name."
-            
-            # 其他工具调用
-            result_str = await mcp_manager.call_tool(tool_name, tool_args)
-            execution_time = time.time() - start_time
-            logger.info(f"Tool execution completed in {execution_time:.2f}s")
-            return result_str
-            
-        except Exception as e:
-            execution_time = time.time() - start_time
-            logger.error(f"Tool '{tool_name}' execution failed after {execution_time:.2f}s: {e}")
-            return f"Error executing tool '{tool_name}': {str(e)}"
+                    return f"Error executing tool '{tool_name}' after {max_retry_attempts} attempts: {str(e)}"
     
     def _validate_tool_execution(self, tool_name: str, tool_args: Dict[str, Any], mcp_manager) -> Dict[str, Any]:
         """验证工具执行"""

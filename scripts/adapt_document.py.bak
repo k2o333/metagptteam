@@ -1,0 +1,107 @@
+import asyncio
+import argparse
+from pathlib import Path
+import sys
+import json
+
+# Add the project root to the Python path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from metagpt.context import Context
+from metagpt.llm import LLM
+from mcp.manager import MCPManager
+from hierarchical.roles.change_coordinator import ChangeCoordinator
+from hierarchical.roles.chief_pm import ChiefPM
+from hierarchical.roles.change_applier import ChangeApplier
+from hierarchical.agents.text_location_agent import TextLocationAgent
+from metagpt.schema import Message
+from metagpt.team import Team
+
+async def main(doc_path: str, prompt: str):
+    print(f"Starting document adaptation for {doc_path} with prompt: {prompt}")
+
+    # 1. Initialize LLM and Context
+    llm = LLM()
+    ctx = Context(llm=llm)
+
+    # 2. Initialize McpManager
+    server_configs = {
+        "context7": {
+            "command": "npx",
+            "args": ["-y", "@upstash/context7-mcp@latest", "--transport", "stdio"],
+            "timeout": 40
+        }
+    }
+    mcp_manager = MCPManager(server_configs=server_configs)
+    await mcp_manager.start_servers()
+
+    # 3. Create team with roles
+    team = Team(context=ctx, use_mgx=False)
+    team.hire([ChangeCoordinator(context=ctx, mcp_manager=mcp_manager), 
+               ChiefPM(context=ctx, mcp_manager=mcp_manager),
+               ChangeApplier(context=ctx, mcp_manager=mcp_manager),
+               TextLocationAgent(context=ctx, mcp_manager=mcp_manager)])
+
+    # 4. Create initial message for the coordinator
+    doc_path_obj = Path(doc_path)
+    if not doc_path_obj.exists():
+        print(f"Error: Document file not found: {doc_path}")
+        await mcp_manager.close()
+        return
+        
+    document_content = doc_path_obj.read_text(encoding='utf-8')
+    initial_message = Message(
+        content=json.dumps({
+            "document_content": document_content,
+            "adaptation_instruction": prompt,
+            "document_path": str(doc_path_obj.resolve())
+        }),
+        role="User",
+        cause_by="UserRequest"
+    )
+    
+    # 5. Publish the initial message
+    team.env.publish_message(initial_message)
+
+    # 6. Run the team repeatedly until completion
+    max_iterations = 30 # Safety break to prevent infinite loops
+    current_iteration = 0
+    final_response = None
+
+    while current_iteration < max_iterations:
+        current_iteration += 1
+        print(f"Team running (Iteration {current_iteration})...")
+        
+        # Run one iteration
+        await team.env.run(k=1)
+        
+        # Check for completion message from ChangeCoordinator
+        change_coordinator = team.env.get_role("ChangeCoordinator")
+        if change_coordinator:
+            # Check the last message in the role's memory
+            messages = change_coordinator.rc.memory.get()
+            if messages:
+                latest_msg = messages[-1]
+                if latest_msg.role == "ChangeCoordinator" and "successfully completed" in latest_msg.content:
+                    final_response = latest_msg
+                    print(f"Coordinator response: {latest_msg.content}")
+                    break
+        
+        await asyncio.sleep(0.1) # Small delay to prevent busy-waiting
+
+    if final_response:
+        print(f"Document adaptation process finished. Final response: {final_response.content}")
+    else:
+        print("Document adaptation process finished without a final response.")
+
+    # 7. Clean up
+    await mcp_manager.close()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Adapt a document based on a prompt.")
+    parser.add_argument("--doc_path", type=str, required=True, help="Path to the document to adapt.")
+    parser.add_argument("--prompt", type=str, required=True, help="Prompt describing the adaptation to perform.")
+    args = parser.parse_args()
+
+    asyncio.run(main(args.doc_path, args.prompt))

@@ -79,6 +79,20 @@ class ResearchController:
     
     def __init__(self, config: ResearchConfig = None):
         self.config = config or ResearchConfig()
+        # 从local_config.yaml中读取工具重试配置
+        if hasattr(self.config, 'tool_retry_config') and not self.config.tool_retry_config:
+            # 从策略配置中获取工具重试配置
+            import yaml
+            from pathlib import Path
+            local_config_path = Path(__file__).resolve().parent.parent.parent / "configs" / "local_config.yaml"
+            if local_config_path.exists():
+                with open(local_config_path, 'r') as f:
+                    local_config = yaml.safe_load(f)
+                    research_config = local_config.get('research', {})
+                    retry_config = research_config.get('retry_config', {})
+                    if retry_config:
+                        self.config.tool_retry_config = retry_config
+        
         self.tool_service = ToolExecutionService(self.config)
         self.rag_service = InternalRAGService()
     
@@ -602,6 +616,18 @@ class ResearchController:
                         if tool_name_match:
                             tool_name = tool_name_match.group(1)
                             tools[tool_name] = desc
+        
+        # 如果没有解析到工具，尝试从配置中获取工具列表
+        if not tools and hasattr(self.config, 'tools_config'):
+            # 从配置中获取MCP工具
+            mcp_tools = self.config.tools_config.get('mcp_tools', [])
+            for tool in mcp_tools:
+                tools[tool['name']] = tool['description']
+            
+            # 从配置中获取内置工具
+            builtin_tools = self.config.tools_config.get('builtin_tools', [])
+            for tool in builtin_tools:
+                tools[tool['name']] = tool['description']
         
         return tools
     

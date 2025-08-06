@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 import yaml
 from typing import List, Dict, Any, Optional, Union
+from datetime import datetime
 
 # --- 路径设置 ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -126,7 +127,8 @@ async def main(idea: str, max_llm_calls: int = 200):
                     final_doc_content = archiver._assemble_document(outline)
                     output_path = Path("outputs") 
                     output_path.mkdir(exist_ok=True)
-                    timestamp = "final_forced"
+                    # 使用与Archiver角色相同的文件名格式，避免生成多个文件
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     safe_goal_name = "".join(c for c in outline.goal if c.isalnum() or c in " _-").strip()[:50]
                     doc_filename = f"final_document_{safe_goal_name}_{timestamp}.md"
                     doc_path = output_path / doc_filename

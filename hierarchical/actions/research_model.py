@@ -67,6 +67,31 @@ class ResearchConfig:
     # 工具配置
     context7_config: Context7ToolConfig = field(default_factory=Context7ToolConfig)
     
+    # 工具重试配置
+    tool_retry_config: Dict[str, Any] = field(default_factory=dict)
+    
+    # 工具配置
+    tools_config: Dict[str, Any] = field(default_factory=lambda: {
+        "mcp_tools": [
+            {
+                "name": "resolve-library-id",
+                "description": "Resolves a package/product name to a Context7-compatible library ID",
+                "server": "context7"
+            },
+            {
+                "name": "get-library-docs",
+                "description": "Fetches up-to-date documentation for a library",
+                "server": "context7"
+            }
+        ],
+        "builtin_tools": [
+            {
+                "name": "use_internal_rag",
+                "description": "Search internal documentation using RAG"
+            }
+        ]
+    })
+    
     # 提示词模板
     prompt_templates: Dict[str, str] = field(default_factory=lambda: {
         "base_system_prompt": (
