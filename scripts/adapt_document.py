@@ -131,8 +131,17 @@ async def main(doc_path: str, prompt: str):
                 else:
                     content = str(latest_msg)
                     
-                if "successfully completed" in content or "Unknown task, idling" in content:
+                # Check for more comprehensive completion indicators
+                completion_indicators = [
+                    "successfully completed",
+                    "Unknown task, idling",
+                    "Successfully applied section change",
+                    "Document adaptation process finished"
+                ]
+                
+                if any(indicator in content for indicator in completion_indicators):
                     final_response = latest_msg
+                    print(f"Process completed at iteration {current_iteration}")
                     break
         except Exception as e:
             print(f"Error accessing messages: {e}")
@@ -144,6 +153,13 @@ async def main(doc_path: str, prompt: str):
         print(f"Document adaptation process finished. Final response: {final_response.content}")
     else:
         print("Document adaptation process finished without a final response.")
+        # Even if we don't have a final response, let's check the output file
+        print("Checking the output file for content changes...")
+        if versioned_doc_path.exists():
+            output_content = versioned_doc_path.read_text()
+            print(f"Output file content:\n{output_content}")
+        else:
+            print("Output file was not created.")
 
     # 7. Clean up
     if mcp_manager:

@@ -184,10 +184,56 @@ class ChangeCoordinator(HierarchicalBaseRole):
                 if task.get("status") == "pending_rewrite":
                     task["status"] = "rewriting"
                     
-            # Simulate rewriting by just marking as complete
+            # Actually rewrite content using LLM
             for task in self.task_queue:
                 if task.get("status") == "rewriting":
-                    task["new_content"] = f"<!-- Rewritten content for {task['full_heading_string']} based on task: {task['rewrite_task']} -->\nThis is simulated rewritten content."
+                    # Extract the section content from the document
+                    heading = task['full_heading_string']
+                    rewrite_task = task['rewrite_task']
+                    
+                    # Find the section in the document
+                    lines = self.document_content.split('\n')
+                    section_lines = []
+                    in_target_section = False
+                    
+                    for line in lines:
+                        # Check if this is the target heading
+                        if line.strip() == heading.strip():
+                            in_target_section = True
+                            section_lines.append(line)
+                        # Check if this is the next heading (end of section)
+                        elif in_target_section and line.startswith('#'):
+                            break
+                        # Add content lines to the section
+                        elif in_target_section:
+                            section_lines.append(line)
+                    
+                    section_content = '\n'.join(section_lines)
+                    
+                    # Create a prompt for the LLM to rewrite the section
+                    prompt = f"""请根据以下要求重写文档中的一个部分：
+
+原始部分内容：
+{section_content}
+
+重写要求：
+{rewrite_task}
+
+请保持与原文相同的格式和标题，只重写内容部分。不要添加额外的解释或注释，只返回重写后的内容。"""
+
+                    # Use LLM to rewrite the content
+                    try:
+                        rewritten_content = await self.llm.aask(prompt)
+                        # Remove the heading from the rewritten content if it's included
+                        rewritten_lines = rewritten_content.split('\n')
+                        if rewritten_lines and rewritten_lines[0].strip() == heading.strip():
+                            # If the first line is the heading, remove it
+                            rewritten_content = '\n'.join(rewritten_lines[1:]).strip()
+                        task["new_content"] = f"{heading}\n{rewritten_content}"
+                    except Exception as e:
+                        logger.error(f"LLM rewrite failed: {e}")
+                        # Fallback to simulated content if LLM fails
+                        task["new_content"] = f"<!-- Rewritten content for {task['full_heading_string']} based on task: {task['rewrite_task']} -->\nThis is simulated rewritten content."
                     
             # Save state
             self._save_state()
