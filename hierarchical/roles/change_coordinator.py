@@ -24,7 +24,7 @@ class ChangeCoordinator(HierarchicalBaseRole):
     profile: str = "Document Change Coordinator"
     goal: str = "Manage the document adaptation process by analyzing changes and dispatching rewrite tasks."
     
-    def __init__(self, **kwargs):
+    def __init__(self, research_action=None, **kwargs):
         super().__init__(**kwargs)
         self.set_actions([AnalyzeHeaderChanges(), AssessSubdivision()])
         self._watch(["UserRequest"])
@@ -37,6 +37,7 @@ class ChangeCoordinator(HierarchicalBaseRole):
         self.task_queue = []
         self.status_file_path = None
         self.phase = "INIT"  # INIT, ANALYZE, REWRITE, APPLY, COMPLETE
+        self.research_action = research_action
         
     async def _think(self) -> bool:
         self.rc.todo = None
@@ -184,7 +185,7 @@ class ChangeCoordinator(HierarchicalBaseRole):
                 if task.get("status") == "pending_rewrite":
                     task["status"] = "rewriting"
                     
-            # Actually rewrite content using LLM
+            # Actually rewrite content using LLM with research context if available
             for task in self.task_queue:
                 if task.get("status") == "rewriting":
                     # Extract the section content from the document
@@ -210,8 +211,44 @@ class ChangeCoordinator(HierarchicalBaseRole):
                     
                     section_content = '\n'.join(section_lines)
                     
+                    # If we have a research action, use it to gather context
+                    research_context = ""
+                    if self.research_action:
+                        try:
+                            logger.info(f"Conducting research for rewrite task: {rewrite_task}")
+                            research_results = await self._execute_action(
+                                self.research_action,
+                                queries=[rewrite_task]
+                            )
+                            
+                            # Extract research context
+                            for query, result in research_results.items():
+                                if result.get("status") == "success":
+                                    answer_data = result.get("final_answer") or result.get("raw_data")
+                                    if isinstance(answer_data, (dict, list)):
+                                        research_context += f"研究发现：{json.dumps(answer_data, indent=2, ensure_ascii=False)}\n"
+                                    else:
+                                        research_context += f"研究发现：{str(answer_data)}\n"
+                            logger.success(f"Research completed. Context gathered: {research_context[:200]}...")
+                        except Exception as e:
+                            logger.warning(f"Research failed: {e}. Proceeding without research context.")
+                    
                     # Create a prompt for the LLM to rewrite the section
-                    prompt = f"""请根据以下要求重写文档中的一个部分：
+                    if research_context:
+                        prompt = f"""请根据以下要求和研究背景信息重写文档中的一个部分：
+
+原始部分内容：
+{section_content}
+
+重写要求：
+{rewrite_task}
+
+研究背景信息：
+{research_context}
+
+请保持与原文相同的格式和标题，只重写内容部分。基于研究背景信息，使内容更加丰富、详细和有根据。不要添加额外的解释或注释，只返回重写后的内容。"""
+                    else:
+                        prompt = f"""请根据以下要求重写文档中的一个部分：
 
 原始部分内容：
 {section_content}

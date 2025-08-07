@@ -18,6 +18,8 @@ from hierarchical.roles.section_applier import SectionApplier
 from metagpt.schema import Message
 from hierarchical.utils_pkg.version_control import VersionControl
 from metagpt.team import Team
+from hierarchical.actions.research import Research
+from hierarchical.rag.engines.docrag_engine import DocRAGEngine
 
 
 async def main(doc_path: str, prompt: str):
@@ -84,8 +86,26 @@ async def main(doc_path: str, prompt: str):
         mcp_manager = None
 
     # 4. Create team with ChangeCoordinator and SectionApplier roles
+    # Initialize Research Action
+    research_action = Research(context=ctx)
+    
+    # Initialize RAG engine for Research Action
+    try:
+        persist_path = merged_config_data.get("docrag_persist_path")
+        if persist_path:
+            print(f"Initializing DocRAGEngine from path: {persist_path}")
+            docrag_engine = await DocRAGEngine.from_path(persist_path)
+            research_action.set_docrag_engine(docrag_engine)
+        else:
+            print("docrag_persist_path not found in config. Research will not use internal RAG.")
+            research_action.set_docrag_engine(None)
+    except Exception as e:
+        print(f"Failed to initialize RAG engine: {e}")
+        research_action.set_docrag_engine(None)
+    
+    # Pass Research Action to ChangeCoordinator
     team = Team(context=ctx, use_mgx=False)  # Disable mgx to avoid the AttributeError
-    coordinator = ChangeCoordinator(context=ctx)
+    coordinator = ChangeCoordinator(context=ctx, research_action=research_action)
     applier = SectionApplier(context=ctx)
     
     # MCP Manager is already set in the context, so roles will inherit it
