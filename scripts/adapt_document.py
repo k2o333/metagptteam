@@ -45,7 +45,9 @@ async def main(doc_path: str, prompt: str):
 
     # 1. Initialize LLM and Context
     llm = LLM()
-    ctx = Context(llm=llm)
+    # Use HierarchicalContext instead of base Context to ensure mcp_manager attribute exists
+    from hierarchical.context import HierarchicalContext
+    ctx = HierarchicalContext(llm=llm)
 
     # 2. Load configuration from YAML files
     global_config_path = Path("/root/.metagpt/config2.yaml")
@@ -86,10 +88,7 @@ async def main(doc_path: str, prompt: str):
     coordinator = ChangeCoordinator(context=ctx)
     applier = SectionApplier(context=ctx)
     
-    if mcp_manager:
-        coordinator.context.mcp_manager = mcp_manager
-        applier.context.mcp_manager = mcp_manager
-        
+    # MCP Manager is already set in the context, so roles will inherit it
     team.hire([coordinator, applier])
 
     # 5. Simulate user input to the coordinator
