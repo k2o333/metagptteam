@@ -28,9 +28,14 @@ from mcp.manager import MCPManager
 # --- 日志设置 ---
 LOGS_DIR = PROJECT_ROOT / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
+RUN_HIERARCHICAL_LOGS_DIR = LOGS_DIR / "run_hierarchical"
+RUN_HIERARCHICAL_LOGS_DIR.mkdir(exist_ok=True)
 logger.remove()
 logger.add(sys.stderr, level="INFO")
-logger.add(LOGS_DIR / "run_hierarchical.log", rotation="10 MB", retention="1 week", level="DEBUG")
+# Create timestamped log file for this run
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+run_log_file = RUN_HIERARCHICAL_LOGS_DIR / f"run_hierarchical_{timestamp}.log"
+logger.add(run_log_file, level="DEBUG")
 
 # --- 猴子补丁 ---
 def patch_llm_aask(context: HierarchicalContext):
@@ -41,8 +46,9 @@ def patch_llm_aask(context: HierarchicalContext):
         logger.debug(f"LLM Call #{call_num} (Model: {self.model}) - Starting...")
         if system_msgs: logger.debug(f"System Prompt: {system_msgs}")
         logger.debug(f"User Prompt / Messages: {msg}")
-        result = await original_aask(self, msg=msg, system_msgs=system_msgs, format_msgs=format_msgs, images=images, timeout=timeout, stream=stream)
-        logger.debug(f"Result: {result}")
+        # Ensure non-streaming output for complete logging
+        result = await original_aask(self, msg=msg, system_msgs=system_msgs, format_msgs=format_msgs, images=images, timeout=timeout, stream=False)
+        logger.debug(f"Complete Result: {result}")
         logger.debug(f"LLM Call #{call_num} - Successful.")
         if 'successful_llm_calls' in context.kwargs: context.kwargs.successful_llm_calls += 1
         return result

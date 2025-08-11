@@ -260,7 +260,9 @@ class ChangeCoordinator(HierarchicalBaseRole):
 
                     # Use LLM to rewrite the content
                     try:
-                        rewritten_content = await self.llm.aask(prompt)
+                        logger.debug(f"LLM Rewrite Prompt: {prompt}")
+                        rewritten_content = await self.llm.aask(prompt, stream=False)
+                        logger.debug(f"LLM Rewrite Response: {rewritten_content}")
                         # Remove the heading from the rewritten content if it's included
                         rewritten_lines = rewritten_content.split('\n')
                         if rewritten_lines and rewritten_lines[0].strip() == heading.strip():

@@ -633,11 +633,16 @@ class ResearchController:
     
     async def _ask_llm(self, prompt: str) -> str:
         """调用LLM"""
+        # Log the complete prompt for debugging
+        logger.debug(f"LLM Prompt: {prompt}")
+        
         # 首先尝试使用Research action自己的LLM（由base_role设置）
         research_action = getattr(self, '_parent_action', None)
         if research_action and hasattr(research_action, 'llm') and research_action.llm:
             try:
-                return await research_action.llm.aask(prompt)
+                result = await research_action.llm.aask(prompt, stream=False)
+                logger.debug(f"LLM Response: {result}")
+                return result
             except Exception as e:
                 logger.warning(f"Failed to use LLM from research_action.llm: {e}")
         
@@ -646,7 +651,9 @@ class ResearchController:
             # 检查context是否有llm属性
             if hasattr(self.context, 'llm') and self.context.llm is not None:
                 try:
-                    return await self.context.llm.aask(prompt)
+                    result = await self.context.llm.aask(prompt, stream=False)
+                    logger.debug(f"LLM Response: {result}")
+                    return result
                 except Exception as e:
                     logger.warning(f"Failed to use LLM from context.llm: {e}")
             
@@ -654,7 +661,9 @@ class ResearchController:
             if hasattr(self.context, 'action') and self.context.action is not None:
                 if hasattr(self.context.action, 'llm') and self.context.action.llm is not None:
                     try:
-                        return await self.context.action.llm.aask(prompt)
+                        result = await self.context.action.llm.aask(prompt, stream=False)
+                        logger.debug(f"LLM Response: {result}")
+                        return result
                     except Exception as e:
                         logger.warning(f"Failed to use LLM from context.action.llm: {e}")
         
@@ -665,7 +674,9 @@ class ResearchController:
             config = Config()
             if hasattr(config, 'llm') and config.llm:
                 llm = create_llm_instance(config.llm)
-                return await llm.aask(prompt)
+                result = await llm.aask(prompt, stream=False)
+                logger.debug(f"LLM Response: {result}")
+                return result
         except Exception as e:
             logger.debug(f"Failed to create LLM from global config: {e}")
         

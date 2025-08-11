@@ -5,6 +5,7 @@ import sys
 import json
 import yaml
 import shutil
+from datetime import datetime
 
 # Add the root of the MetaGPT project to the Python path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent  # This should be /root/metagpt/mghier
@@ -20,10 +21,27 @@ from hierarchical.utils_pkg.version_control import VersionControl
 from metagpt.team import Team
 from hierarchical.actions.research import Research
 from hierarchical.rag.engines.docrag_engine import DocRAGEngine
+from metagpt.logs import logger
 
+# Configure logging for adapt_document
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+LOGS_DIR = PROJECT_ROOT / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
+ADAPT_DOCUMENT_LOGS_DIR = LOGS_DIR / "adapt_document"
+ADAPT_DOCUMENT_LOGS_DIR.mkdir(exist_ok=True)
 
 async def main(doc_path: str, prompt: str):
     print(f"Starting document adaptation for {doc_path} with prompt: {prompt}")
+    
+    # Create timestamped log file for this run
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    adapt_log_file = ADAPT_DOCUMENT_LOGS_DIR / f"adapt_document_{timestamp}.log"
+    logger.remove()  # Remove default handlers
+    logger.add(sys.stderr, level="INFO")  # Keep console output
+    logger.add(adapt_log_file, level="DEBUG")  # Add file logging
+    
+    # Log the start of the process
+    logger.info(f"Starting document adaptation for {doc_path} with prompt: {prompt}")
     
     # Validate that the document is a .md file
     doc_path_obj = Path(doc_path)
