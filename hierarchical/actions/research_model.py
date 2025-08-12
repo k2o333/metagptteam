@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
-class ToolExecutionStatus(Enum):
+class ToolExecutionStatus(str, Enum):
     """Tool execution status enumeration"""
     SUCCESS = "success"
     FAILURE = "failure"
@@ -127,6 +127,20 @@ class ResearchConfig:
         )
     })
 
+    # 【新增】一个类方法，用于从字典创建实例
+    @classmethod
+    def from_dict(cls, config_data: Dict[str, Any]) -> 'ResearchConfig':
+        """从字典创建 ResearchConfig 实例，可以安全地覆盖默认值。"""
+        # 创建一个包含所有默认值的实例
+        config = cls()
+        
+        # 用传入的字典更新实例的属性
+        for key, value in config_data.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+        
+        return config
+
 
 @dataclass
 class ToolExecutionResult:
@@ -136,6 +150,16 @@ class ToolExecutionResult:
     raw_data: Any = None
     reason: Optional[str] = None
     execution_time: float = 0.0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        return {
+            "status": self.status,
+            "source": self.source,
+            "raw_data": self.raw_data,
+            "reason": self.reason,
+            "execution_time": self.execution_time
+        }
 
 
 @dataclass
@@ -197,3 +221,14 @@ class LibraryResolutionResult:
     def is_success(self) -> bool:
         """Check if resolution was successful"""
         return self.resolved_id is not None and self.error is None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        return {
+            "library_name": self.library_name,
+            "resolved_id": self.resolved_id,
+            "trust_score": self.trust_score,
+            "code_snippets": self.code_snippets,
+            "description": self.description,
+            "error": self.error
+        }

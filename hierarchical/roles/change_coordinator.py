@@ -1,6 +1,8 @@
+# /root/metagpt/mghier/hierarchical/roles/change_coordinator.py
 import sys
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 from datetime import datetime
@@ -16,7 +18,20 @@ from metagpt.schema import Message
 from hierarchical.roles.base_role import HierarchicalBaseRole
 from hierarchical.actions.analyze_header_changes import AnalyzeHeaderChanges
 from hierarchical.actions.assess_subdivision import AssessSubdivision
+from hierarchical.actions.assess_research_necessity import AssessResearchNecessity # <-- 导入新 Action
 from hierarchical.utils_pkg.version_control import VersionControl
+
+# 【新增】导入 ResearchController 中的提示模板
+# 由于 SUBJECT_DISCOVERY_PROMPT 不在 research_controller.py 中，我们需要定义它
+# 或从正确的位置导入。这里我们选择直接定义它，因为它是一个简单的字符串模板。
+SUBJECT_DISCOVERY_PROMPT = """
+You are a subject matter expert. Your task is to identify the main topic or subject from the given context.
+
+Context:
+{query}
+
+Please provide only the main topic or subject as a single word or short phrase, without any additional explanation.
+"""
 
 
 class ChangeCoordinator(HierarchicalBaseRole):
@@ -26,7 +41,8 @@ class ChangeCoordinator(HierarchicalBaseRole):
     
     def __init__(self, research_action=None, **kwargs):
         super().__init__(**kwargs)
-        self.set_actions([AnalyzeHeaderChanges(), AssessSubdivision()])
+        # 将新 Action 添加到角色能力中
+        self.set_actions([AnalyzeHeaderChanges(), AssessSubdivision(), AssessResearchNecessity()])
         self._watch(["UserRequest"])
         self.document_content = None
         self.document_path = None
@@ -168,118 +184,85 @@ class ChangeCoordinator(HierarchicalBaseRole):
             return Message(content="Changes analyzed and task queue initialized.", role=self.profile, send_to="ChangeCoordinator")
             
         elif self.rc.todo == "DISPATCH_REWRITE_BATCH":
-            # Get all pending rewrite tasks
             pending_tasks = [task for task in self.task_queue if task.get("status") == "pending_rewrite"]
-            
             if not pending_tasks:
-                # No more tasks to rewrite, move to apply phase
                 self.phase = "APPLY"
                 return Message(content="All rewrite tasks dispatched.", role=self.profile, send_to="ChangeCoordinator")
-                
-            # In a real implementation, we would send these to an Executor role
-            # For now, we'll simulate the rewriting
+
             logger.info(f"Dispatching {len(pending_tasks)} rewrite tasks.")
-            
-            # Update status of dispatched tasks
+
+            # --- START: NEW STRATEGIC IMPLEMENTATION ---
+
+            # 1. 一次性确定全局主题 (使用更健壮的正则表达式)
+            doc_topic = "General Topics" # Fallback topic
+            # 【核心优化】修改正则表达式以匹配任何级别的标题 (1-6个#)
+            # 它会找到文档中的第一个标题行，无论其级别如何
+            match = re.search(r'^\s*#{1,6}\s+([^\n]+)', self.document_content, re.MULTILINE)
+            if match:
+                doc_topic = match.group(1).strip()
+            logger.success(f"Established Global Document Topic: '{doc_topic}'")
+
+            assess_action = None
+            for action in self.actions:
+                if isinstance(action, AssessResearchNecessity):
+                    assess_action = action
+                    break
+
             for task in self.task_queue:
                 if task.get("status") == "pending_rewrite":
                     task["status"] = "rewriting"
                     
-            # Actually rewrite content using LLM with research context if available
-            for task in self.task_queue:
-                if task.get("status") == "rewriting":
-                    # Extract the section content from the document
                     heading = task['full_heading_string']
                     rewrite_task = task['rewrite_task']
+                    section_content = self._extract_section_content(heading)
                     
-                    # Find the section in the document
-                    lines = self.document_content.split('\n')
-                    section_lines = []
-                    in_target_section = False
+                    # 2. 策略决策：基于全局主题判断是否研究
+                    logger.info(f"Assessing research for task: '{rewrite_task}' under topic '{doc_topic}'")
                     
-                    for line in lines:
-                        # Check if this is the target heading
-                        if line.strip() == heading.strip():
-                            in_target_section = True
-                            section_lines.append(line)
-                        # Check if this is the next heading (end of section)
-                        elif in_target_section and line.startswith('#'):
-                            break
-                        # Add content lines to the section
-                        elif in_target_section:
-                            section_lines.append(line)
-                    
-                    section_content = '\n'.join(section_lines)
-                    
-                    # If we have a research action, use it to gather context
-                    research_context = ""
-                    if self.research_action:
-                        try:
-                            logger.info(f"Conducting research for rewrite task: {rewrite_task}")
-                            research_results = await self._execute_action(
-                                self.research_action,
-                                queries=[rewrite_task]
-                            )
-                            
-                            # Extract research context
-                            for query, result in research_results.items():
-                                if result.get("status") == "success":
-                                    answer_data = result.get("final_answer") or result.get("raw_data")
-                                    if isinstance(answer_data, (dict, list)):
-                                        research_context += f"研究发现：{json.dumps(answer_data, indent=2, ensure_ascii=False)}\n"
-                                    else:
-                                        research_context += f"研究发现：{str(answer_data)}\n"
-                            logger.success(f"Research completed. Context gathered: {research_context[:200]}...")
-                        except Exception as e:
-                            logger.warning(f"Research failed: {e}. Proceeding without research context.")
-                    
-                    # Create a prompt for the LLM to rewrite the section
-                    if research_context:
-                        prompt = f"""请根据以下要求和研究背景信息重写文档中的一个部分：
-
-原始部分内容：
-{section_content}
-
-重写要求：
-{rewrite_task}
-
-研究背景信息：
-{research_context}
-
-请保持与原文相同的格式和标题，只重写内容部分。基于研究背景信息，使内容更加丰富、详细和有根据。不要添加额外的解释或注释，只返回重写后的内容。"""
+                    if assess_action is None:
+                        logger.error("AssessResearchNecessity action not found in ChangeCoordinator actions.")
+                        assessment = {"should_research": False, "research_topic": "", "reason": "Action not found"}
                     else:
-                        prompt = f"""请根据以下要求重写文档中的一个部分：
+                        assessment = await self._execute_action(
+                            assess_action,
+                            global_topic=doc_topic,
+                            section_content=section_content,
+                            rewrite_instruction=rewrite_task
+                        )
 
-原始部分内容：
-{section_content}
+                    research_context = ""
+                    if self.research_action and assessment.get("should_research"):
+                        research_topic = assessment.get("research_topic")
+                        if research_topic:
+                            # 3. 精确执行
+                            logger.info(f"Strategy: Research needed. Topic: '{research_topic}'")
+                            try:
+                                research_results = await self._execute_action(
+                                    self.research_action, queries=[research_topic]
+                                )
+                                research_context = self._format_research_results(research_results, research_topic)
+                            except Exception as e:
+                                logger.error(f"Research execution failed for '{research_topic}': {e}", exc_info=True)
+                        else:
+                            logger.warning("Strategy: Research assessed as needed, but no topic provided. Skipping.")
+                    else:
+                        logger.info(f"Strategy: Research not required. Reason: {assessment.get('reason')}")
 
-重写要求：
-{rewrite_task}
-
-请保持与原文相同的格式和标题，只重写内容部分。不要添加额外的解释或注释，只返回重写后的内容。"""
-
-                    # Use LLM to rewrite the content
+                    # 4. 构建重写 Prompt 并执行
+                    prompt = self._build_rewrite_prompt(section_content, rewrite_task, research_context)
+                    
                     try:
-                        logger.debug(f"LLM Rewrite Prompt: {prompt}")
                         rewritten_content = await self.llm.aask(prompt, stream=False)
-                        logger.debug(f"LLM Rewrite Response: {rewritten_content}")
-                        # Remove the heading from the rewritten content if it's included
-                        rewritten_lines = rewritten_content.split('\n')
-                        if rewritten_lines and rewritten_lines[0].strip() == heading.strip():
-                            # If the first line is the heading, remove it
-                            rewritten_content = '\n'.join(rewritten_lines[1:]).strip()
-                        task["new_content"] = f"{heading}\n{rewritten_content}"
+                        # Clean up and assign rewritten_content to task
+                        task["new_content"] = f"{heading}\n{self._clean_rewritten_content(rewritten_content, heading)}"
                     except Exception as e:
                         logger.error(f"LLM rewrite failed: {e}")
-                        # Fallback to simulated content if LLM fails
-                        task["new_content"] = f"<!-- Rewritten content for {task['full_heading_string']} based on task: {task['rewrite_task']} -->\nThis is simulated rewritten content."
-                    
-            # Save state
+                        task["new_content"] = f"<!-- Rewrite failed for heading: {heading} -->"
+
+            # --- END: NEW STRATEGIC IMPLEMENTATION ---
+            
             self._save_state()
-            
-            # Move to APPLY phase since we've simulated the rewriting
             self.phase = "APPLY"
-            
             return Message(content=f"Dispatched {len(pending_tasks)} rewrite tasks.", role=self.profile, send_to="ChangeCoordinator")
             
         elif self.rc.todo == "APPLY_CHANGES":
@@ -332,6 +315,83 @@ class ChangeCoordinator(HierarchicalBaseRole):
                 
         return Message(content="Unknown task, idling.")
         
+    def _extract_section_content(self, heading: str) -> str:
+        """Extract the content of a section based on its heading."""
+        if not self.document_content:
+            return ""
+        
+        lines = self.document_content.split('\n')
+        section_lines = []
+        in_target_section = False
+        
+        for line in lines:
+            # Check if this is the target heading
+            if line.strip() == heading.strip():
+                in_target_section = True
+                section_lines.append(line)
+            # Check if this is the next heading (end of section)
+            elif in_target_section and line.startswith('#'):
+                break
+            # Add content lines to the section
+            elif in_target_section:
+                section_lines.append(line)
+        
+        return '\n'.join(section_lines)
+    
+    def _format_research_results(self, results: Dict, topic: str) -> str:
+        """Format research results into a string for the rewrite prompt."""
+        if not results:
+            return ""
+        
+        result_data = results.get(topic, {})
+        if result_data.get("status") == "success":
+            answer = result_data.get("final_answer") or result_data.get("raw_data")
+            if isinstance(answer, (dict, list)):
+                return f"研究发现：\n{json.dumps(answer, indent=2, ensure_ascii=False)}\n"
+            else:
+                return f"研究发现：\n{str(answer)}\n"
+        return ""
+    
+    def _build_rewrite_prompt(self, section_content: str, rewrite_task: str, research_context: str) -> str:
+        """Build the final rewrite prompt with research context."""
+        if research_context:
+            return f"""请根据以下要求和研究背景信息重写文档中的一个部分：
+
+原始部分内容：
+{section_content}
+
+重写要求：
+{rewrite_task}
+
+研究背景信息：
+{research_context}
+
+请保持与原文相同的格式和标题，只重写内容部分。基于研究背景信息，使内容更加丰富、详细和有根据。不要添加额外的解释或注释，只返回重写后的内容。"""
+        else:
+            return f"""请根据以下要求重写文档中的一个部分：
+
+原始部分内容：
+{section_content}
+
+重写要求：
+{rewrite_task}
+
+请保持与原文相同的格式和标题，只重写内容部分。不要添加额外的解释或注释，只返回重写后的内容。"""
+    
+    def _clean_rewritten_content(self, content: str, heading: str) -> str:
+        """Clean up the rewritten content by removing any extra headings."""
+        if not content:
+            return content
+        
+        # Split content into lines
+        lines = content.split('\n')
+        
+        # If the first line is the heading, remove it
+        if lines and lines[0].strip() == heading.strip():
+            return '\n'.join(lines[1:]).strip()
+        
+        return content.strip()
+    
     def _save_state(self):
         """Save the current state to a status file for recovery."""
         if not self.status_file_path:

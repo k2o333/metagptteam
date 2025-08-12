@@ -43,36 +43,34 @@ REACT_PROMPT = """
 {system_prompt}
 {tool_instruction}
 
+**CRITICAL: Response Format Requirements**
+Your entire response MUST be a single, valid JSON object. Do not include markdown tags (like ```json), any explanatory text, or any characters outside of the JSON structure.
+
+CORRECT Example:
+{{"thought": "I need to find the official documentation for the 'React' library.", "action": {{"tool_name": "resolve-library-id", "tool_args": {{"libraryName": "React"}}}}}}
+
+INCORRECT Example (contains markdown):
+```json
+{{"thought": "...", "action": {{...}}}}
+```
+
+INCORRECT Example (contains extra text):
+Here is my decision:
+{{"thought": "...", "action": {{...}}}}
+
 **Information Gathered So Far (Scratchpad):**
 {scratchpad}
 
-Based on the information above, think about what to do next and then decide on an action. Respond with a single, valid JSON object. Choose one of the following formats:
-
-1.  To use a tool:
-    ```json
-    {{
-      "thought": "<Your reasoning about what to do next>",
-      "action": {{
-        "tool_name": "<tool_name>",
-        "tool_args": {{...}}
-      }}
-    }}
-    ```
-
-2.  To finish the task:
-    ```json
-    {{
-      "thought": "<Your final reasoning>",
-      "action": {{
-        "tool_name": "FINISH",
-        "result": "<The final result of your research>"
-      }}
-    }}
-    ```
-
-Provide ONLY the JSON object in your response.
+Based on the information above, generate your next step as a single JSON object.
 """
 
+
+class ReActParseError(Exception):
+    """自定义错误，用于细分ReAct循环中的解析失败类型。"""
+    def __init__(self, error_type: str, message: str, recoverable: bool = True):
+        self.error_type = error_type  # e.g., "JSON_DECODE_ERROR", "SCHEMA_VALIDATION_ERROR"
+        self.recoverable = recoverable
+        super().__init__(f"[{self.error_type}] {message}")
 
 class ResearchController:
     """Research控制器，负责整体逻辑编排"""
@@ -155,9 +153,33 @@ class ResearchController:
         
         return final_results
     
+    class ReActCycleState:
+        """管理单个ReAct任务的重试、错误历史和循环检测。"""
+        def __init__(self, max_retries: int = 3):
+            self.max_parse_retries = max_retries
+            self.parse_retry_count = 0
+            self.error_history: List[str] = []
+
+        def log_error(self, error: ReActParseError):
+            """记录错误并增加重试计数。"""
+            self.parse_retry_count += 1
+            self.error_history.append(error.error_type)
+
+        def should_retry(self, error: ReActParseError) -> bool:
+            """判断是否应该重试解析。"""
+            if not error.recoverable or self.parse_retry_count >= self.max_parse_retries:
+                return False
+            
+            # 简单的循环检测：如果连续两次出现同一种解析错误，则停止。
+            if len(self.error_history) >= 2 and self.error_history[-1] == self.error_history[-2]:
+                logger.warning(f"Detected a repetitive parsing error loop ('{error.error_type}'). Aborting.")
+                return False
+                
+            return True
+
     async def _run_react_cycle(self, query: str, task_memory: RoleZeroLongTermMemory, 
                               tools_info: Dict[str, str], max_loops: int) -> ResearchResult:
-        """执行ReAct循环的核心逻辑"""
+        """执行ReAct循环的核心逻辑（最终版）"""
         logger.info(f"Starting ReAct cycle for query: '{query}'")
         research_result = ResearchResult(
             query=query,
@@ -166,6 +188,9 @@ class ResearchController:
             final_answer="",
             steps_taken=0
         )
+        
+        # << 新增状态管理器
+        cycle_state = self.ReActCycleState()
         
         for i in range(max_loops):
             try:
@@ -181,16 +206,27 @@ class ResearchController:
                 # 3. LLM思考并决定下一步行动
                 try:
                     decision_str = await self._ask_llm(prompt)
+                    
+                    # 4. 尝试解析与验证
                     thought, action = self._parse_thought_action(decision_str)
-                except (ConnectionError, Exception) as e:
-                    # LLM不可用时的fallback机制
-                    logger.error(f"LLM unavailable in ReAct cycle: {e}")
-                    research_result.reason = "LLM unavailable"
-                    research_result.final_answer = "Research failed due to LLM unavailability"
-                    return research_result
+                    self._validate_tool_action(action) # << 新增验证步骤 (见第4步)
                 
-                # 4. 执行行动并获取观察结果
-                observation = await self._execute_tool_action(action, query)
+                except ReActParseError as e:
+                    logger.warning(f"Parse attempt {cycle_state.parse_retry_count + 1} failed: {e}")
+                    cycle_state.log_error(e)
+
+                    if cycle_state.should_retry(e):
+                        observation = f"Error: Your last response failed parsing. Please fix it. Details: {e}"
+                        action = {"tool_name": "RETRY_PARSE", "tool_args": {}} # 标记这是一个重试步骤
+                    else:
+                        logger.error("Max parsing retries reached or unrecoverable error. Aborting ReAct cycle.")
+                        research_result.reason = "Parsing failed exhaustively."
+                        research_result.final_answer = f"Failed to get a valid action from the LLM after {cycle_state.max_parse_retries} attempts."
+                        return research_result
+                
+                # 5. 执行行动 (如果不是解析失败的重试)
+                if action.get("tool_name") != "RETRY_PARSE":
+                    observation = await self._execute_tool_action(action, query)
                 
                 # 5. 将观察结果存入TaskMemory
                 observation_msg = Message(
@@ -217,9 +253,25 @@ class ResearchController:
                 
             except Exception as e:
                 logger.error(f"ReAct step {i+1} failed: {e}", exc_info=True)
+
+                # 【核心修正】: 构建更智能的错误反馈信息
+                error_feedback = f"Step {i+1} failed with error: {str(e)}"
+                
+                # 检查是否是参数名错误
+                if "SCHEMA_VALIDATION_ERROR" in str(e) and "requires a non-empty string" in str(e):
+                    # 尝试从错误信息中提取正确的参数名
+                    match = re.search(r"requires a non-empty string '([^']*)' argument", str(e))
+                    if match:
+                        correct_param = match.group(1)
+                        # 检查上一步的action，看是否有相似但错误的参数名
+                        last_action = locals().get('action', {}) # 安全地获取action
+                        if last_action and last_action.get('tool_args'):
+                            wrong_keys = list(last_action['tool_args'].keys())
+                            error_feedback += f"\nHint: The tool expected the parameter '{correct_param}', but you provided: {wrong_keys}. Please correct the parameter name in your next attempt."
+
                 # 将错误信息存入记忆中
                 error_msg = Message(
-                    content=f"Step {i+1} failed with error: {str(e)}"
+                    content=error_feedback
                 )
                 task_memory.add(error_msg)
                 
@@ -258,36 +310,38 @@ class ResearchController:
             scratchpad=scratchpad
         )
     
-    def _parse_thought_action(self, decision_str: str, attempt: int = 1) -> Tuple[str, Dict[str, Any]]:
-        """解析LLM的决策字符串，提取thought和action"""
+    def _parse_thought_action(self, decision_str: str) -> Tuple[str, Dict[str, Any]]:
+        """
+        解析LLM的决策字符串（最终强化版），使用精细化错误。
+        """
+        logger.debug(f"Attempting to parse decision string: '{decision_str}'")
         
-        # 清理和预处理输入
-        decision_str = self._preprocess_decision_string(decision_str)
-        
-        # 尝试多种解析策略
-        parsing_strategies = self._get_parsing_strategies()
-        
-        for strategy_name, strategy_func in parsing_strategies:
-            try:
-                logger.debug(f"Attempting parsing strategy: {strategy_name}")
-                thought, action = strategy_func(decision_str)
-                if self._validate_parsed_result(thought, action):
-                    logger.debug(f"Successfully parsed using {strategy_name}")
-                    return thought, action
-            except Exception as e:
-                logger.debug(f"Strategy {strategy_name} failed: {e}")
-                continue
-        
-        # 如果所有策略都失败，尝试重试
-        if attempt < self.config.max_parsing_attempts:
-            logger.warning(f"Attempt {attempt} failed, retrying...")
-            import time
-            time.sleep(0.5 * attempt)
-            return self._parse_thought_action(decision_str, attempt + 1)
-        
-        # 所有尝试都失败，返回默认值
-        logger.error(f"All parsing strategies failed after {self.config.max_parsing_attempts} attempts")
-        return "I need more information to proceed", {"tool_name": "FINISH", "tool_args": {"result": "Unable to parse response"}}
+        try:
+            parsed_json_str = CodeParser.parse_code(text=decision_str, lang="json")
+            if not parsed_json_str or not parsed_json_str.strip().startswith('{'):
+                raise ReActParseError("INVALID_FORMAT", "LLM response is not a JSON object or is empty.", recoverable=True)
+            
+            decision = json.loads(parsed_json_str)
+            
+            thought = decision.get("thought")
+            action = decision.get("action")
+            
+            if not isinstance(thought, str) or not isinstance(action, dict):
+                raise ReActParseError("SCHEMA_VALIDATION_ERROR", "Parsed JSON is missing 'thought' (string) or 'action' (dict).", recoverable=True)
+            
+            if not isinstance(action.get("tool_name"), str):
+                raise ReActParseError("SCHEMA_VALIDATION_ERROR", "The 'action' object must contain a 'tool_name' (string).", recoverable=True)
+            
+            return thought, action
+
+        except json.JSONDecodeError as e:
+            raise ReActParseError("JSON_DECODE_ERROR", f"Invalid JSON syntax: {e}", recoverable=True)
+        except ReActParseError:
+            # 直接重新抛出我们自己的、已经格式化好的错误
+            raise
+        except Exception as e:
+            # 捕获其他任何意外错误
+            raise ReActParseError("UNKNOWN_PARSE_ERROR", f"An unexpected error occurred during parsing: {e}", recoverable=False)
     
     def _preprocess_decision_string(self, decision_str: str) -> str:
         """预处理决策字符串"""
@@ -588,13 +642,37 @@ class ResearchController:
         elif tool_name == "use_internal_rag":
             # 内部RAG搜索
             result = await self.rag_service.search(query)
-            return json.dumps(result.__dict__, ensure_ascii=False)
+            # 使用to_dict()方法进行序列化
+            return json.dumps(result.to_dict(), ensure_ascii=False)
         else:
             # 其他工具调用
             if mcp_manager is None:
                 return f"Error: MCP manager not available for tool '{tool_name}'"
             return await self.tool_service.execute_tool(action, mcp_manager, query)
     
+    def _validate_tool_action(self, action: Dict[str, Any]):
+        """
+        在执行前验证工具调用的基本结构和参数。
+        如果验证失败，则抛出 ReActParseError。
+        """
+        tool_name = action.get("tool_name")
+        tool_args = action.get("tool_args")
+
+        if not isinstance(tool_args, dict) and tool_name != "FINISH":
+             raise ReActParseError("SCHEMA_VALIDATION_ERROR", f"Tool '{tool_name}' expects 'tool_args' to be a dictionary.", recoverable=True)
+        
+        # 为已知工具添加更具体的验证
+        if tool_name == "resolve-library-id":
+            if not isinstance(tool_args.get("libraryName"), str) or not tool_args.get("libraryName"):
+                raise ReActParseError("SCHEMA_VALIDATION_ERROR", "Tool 'resolve-library-id' requires a non-empty string 'libraryName' argument.", recoverable=True)
+
+        if tool_name == "get-library-docs":
+            if not isinstance(tool_args.get("context7CompatibleLibraryID"), str) or not tool_args.get("context7CompatibleLibraryID"):
+                raise ReActParseError("SCHEMA_VALIDATION_ERROR", "Tool 'get-library-docs' requires a non-empty string 'context7CompatibleLibraryID' argument.", recoverable=True)
+
+        # 验证通过，不返回任何内容
+        return
+
     def _parse_tool_descriptions(self, tool_descriptions: str) -> Dict[str, str]:
         """解析工具描述字符串"""
         tools = {}
@@ -716,13 +794,13 @@ class ResearchSerializer:
 class Research(Action):
     """Research Action主类"""
     
-    def __init__(self, name: str = "", context: Any = None, llm: Any = None, config: ResearchConfig = None):
+    def __init__(self, name: str = "", context: Any = None, llm: Any = None, config: Optional[ResearchConfig] = None):
         super().__init__(name=name, context=context, llm=llm)
-        # Use the config from the parent class or create a new one
-        if hasattr(self, 'config') and self.config:
-            self.research_config = self.config if isinstance(self.config, ResearchConfig) else ResearchConfig()
-        else:
-            self.research_config = config or ResearchConfig()
+        
+        # 【核心优化】直接使用传入的config对象，如果未提供则使用默认值
+        # 这使得配置的来源非常明确，不再依赖于隐式的内部逻辑
+        self.research_config = config or ResearchConfig()
+        
         self.controller = ResearchController(self.research_config)
         
         # 设置parent action引用，以便controller可以访问LLM

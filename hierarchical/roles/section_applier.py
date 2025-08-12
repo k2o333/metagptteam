@@ -1,5 +1,7 @@
+# /root/metagpt/mghier/hierarchical/roles/section_applier.py
 import sys
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -13,6 +15,21 @@ from metagpt.logs import logger
 from hierarchical.roles.base_role import HierarchicalBaseRole
 from metagpt.tools.libs.editor import Editor
 from metagpt.tools.libs.linter import Linter
+
+
+def _get_heading_level(line: str) -> int:
+    """计算一个 Markdown 标题行的级别。如果不是标题行，返回 0。"""
+    line = line.lstrip()
+    if not line.startswith('#'):
+        return 0
+    
+    level = 0
+    for char in line:
+        if char == '#':
+            level += 1
+        else:
+            break
+    return level
 
 
 class SectionApplier(HierarchicalBaseRole):
@@ -51,11 +68,9 @@ class SectionApplier(HierarchicalBaseRole):
     async def _act(self) -> Message:
         logger.info(f"--- {self.name} is acting... ---")
         
-        # Always call _think first
         await self._think()
-        
         if self.rc.todo != "APPLY_SECTION":
-            logger.warning("SectionApplier activated but todo is not a section application request. Skipping.")
+            logger.warning("SectionApplier activated but has no task. Skipping.")
             return None
             
         latest_msg = self.rc.news[-1]
@@ -66,85 +81,70 @@ class SectionApplier(HierarchicalBaseRole):
             new_heading_and_content = content_data.get("new_heading_and_content")
             file_path = content_data.get("file_path")
             
-            if not target_heading_string or not new_heading_and_content or not file_path:
-                logger.error("Missing required data in section application request.")
+            if not all([target_heading_string, new_heading_and_content, file_path]):
                 error_msg = "Error: Missing required data in section application request."
+                logger.error(error_msg)
                 self._send_completion_message(error_msg, "failed", target_heading_string, file_path)
                 return Message(content=error_msg, role=self.profile, send_to="ChangeCoordinator")
             
-            # Read the current document content
             doc_path = Path(file_path)
             if not doc_path.exists():
-                logger.error(f"Document file not found: {file_path}")
                 error_msg = f"Error: Document file not found: {file_path}"
+                logger.error(error_msg)
                 self._send_completion_message(error_msg, "failed", target_heading_string, file_path)
                 return Message(content=error_msg, role=self.profile, send_to="ChangeCoordinator")
                 
             document_content = doc_path.read_text(encoding='utf-8')
+            lines = document_content.splitlines(keepends=True)
             
-            # Find the target heading in the document
-            heading_start_pos = document_content.find(target_heading_string)
-            if heading_start_pos == -1:
-                logger.error(f"Target heading not found in document: {target_heading_string}")
+            target_level = _get_heading_level(target_heading_string)
+            start_line_idx = -1
+            end_line_idx = len(lines) # 默认为文件末尾
+
+            # 1. 找到起始行
+            for i, line in enumerate(lines):
+                if line.strip() == target_heading_string.strip():
+                    start_line_idx = i
+                    break
+            
+            if start_line_idx == -1:
                 error_msg = f"Error: Target heading not found in document: {target_heading_string}"
+                logger.error(error_msg)
                 self._send_completion_message(error_msg, "failed", target_heading_string, file_path)
                 return Message(content=error_msg, role=self.profile, send_to="ChangeCoordinator")
-                
-            # Find the end of the current section (next heading or end of document)
-            next_heading_pos = document_content.find("\n#", heading_start_pos + len(target_heading_string))
-            if next_heading_pos == -1:
-                section_end_pos = len(document_content)
-            else:
-                section_end_pos = next_heading_pos
-                
-            # Extract the current section content (including the heading)
-            current_section = document_content[heading_start_pos:section_end_pos]
+
+            # 2. 从起始行下一行开始，找到结束行
+            for i in range(start_line_idx + 1, len(lines)):
+                line = lines[i]
+                level = _get_heading_level(line)
+                if 0 < level <= target_level:
+                    end_line_idx = i
+                    break
             
-            # Apply the change using Editor tool
-            try:
-                # Use edit_file_by_replace to replace the entire section
-                result = self.editor.edit_file_by_replace(
-                    file_name=str(doc_path),
-                    first_replaced_line_number=self._get_line_number(document_content, heading_start_pos),
-                    first_replaced_line_content=current_section.split('\n')[0],
-                    last_replaced_line_number=self._get_line_number(document_content, section_end_pos - 1),
-                    last_replaced_line_content=current_section.split('\n')[-2] if section_end_pos > heading_start_pos and '\n' in current_section else current_section.split('\n')[-1],
-                    new_content=new_heading_and_content
-                )
-                logger.info(f"Successfully applied section change using Editor tool: {result}")
-            except ValueError as e:
-                logger.error(f"Editor tool validation failed: {e}")
-                error_msg = f"Error: Editor tool validation failed: {e}"
-                self._send_completion_message(error_msg, "failed", target_heading_string, file_path)
-                return Message(content=error_msg, role=self.profile, send_to="ChangeCoordinator")
-                
-            # Validate the modified file with Linter
-            try:
-                lint_result = self.linter.lint(str(doc_path))
-                if lint_result:
-                    logger.warning(f"Linter found issues: {lint_result.text}")
-                    # For Markdown files, we might want to be more lenient
-                    # But we still report the issues
-            except Exception as e:
-                logger.warning(f"Linter validation encountered an error (continuing): {e}")
-                
-            logger.success(f"Successfully applied section change to document: {file_path}")
+            # 3. 构造旧的文本块
+            old_section_block = "".join(lines[start_line_idx:end_line_idx])
             
-            # Send completion message back to ChangeCoordinator
-            success_msg = f"Section '{target_heading_string}' applied successfully."
+            # 4. 执行替换
+            # 我们在旧块的末尾添加一个换行符，以确保替换后格式正确
+            # 同时确保新内容也以换行符结尾
+            if not new_heading_and_content.endswith('\n'):
+                new_heading_and_content += '\n'
+                
+            modified_content = document_content.replace(old_section_block, new_heading_and_content)
+
+            # 5. 写回文件
+            doc_path.write_text(modified_content, encoding='utf-8')
+            
+            success_msg = f"Successfully applied section change for heading: {target_heading_string}"
+            logger.success(success_msg)
             self._send_completion_message(success_msg, "success", target_heading_string, file_path)
             
             return Message(content=success_msg, role=self.profile, send_to="ChangeCoordinator")
             
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse section application request: {e}")
-            error_msg = f"Error: Failed to parse section application request: {e}"
-            self._send_completion_message(error_msg, "failed", "", "")
-            return Message(content=error_msg, role=self.profile, send_to="ChangeCoordinator")
         except Exception as e:
-            logger.error(f"Failed to apply section change: {e}")
-            error_msg = f"Error: Failed to apply section change: {e}"
-            self._send_completion_message(error_msg, "failed", "", "")
+            error_msg = f"Error in SectionApplier._act: {e}"
+            logger.error(error_msg, exc_info=True)
+            self._send_completion_message(error_msg, "failed", content_data.get("target_heading_string", "Unknown"), content_data.get("file_path", "Unknown"))
             return Message(content=error_msg, role=self.profile, send_to="ChangeCoordinator")
             
     def _get_line_number(self, content: str, pos: int) -> int:

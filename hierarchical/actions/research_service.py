@@ -10,6 +10,9 @@ from .research_model import (
     Context7ToolConfig, ResearchConfig
 )
 
+# 导入我们新创建的安全序列化函数
+from ..utils_pkg.version_control import safe_json_dumps
+
 
 class Context7MCPService:
     """Context7 MCP服务集成类"""
@@ -17,41 +20,27 @@ class Context7MCPService:
     def __init__(self, config: Context7ToolConfig):
         self.config = config
     
-    async def resolve_library_id(self, mcp_manager, library_name: str) -> LibraryResolutionResult:
-        """解析库ID，使用Context7最佳实践"""
+    async def resolve_library_id(self, mcp_manager, library_name: str) -> str:
+        """解析库ID，使用Context7最佳实践，直接返回原始文本内容供LLM解析"""
         logger.info(f"Resolving library ID for: '{library_name}'")
         
         # 检查是否是已知的库ID格式
         if self._is_valid_library_id_format(library_name):
-            return LibraryResolutionResult(
-                library_name=library_name,
-                resolved_id=library_name,
-                description="Direct library ID provided"
-            )
+            return f"Library ID already provided: {library_name}"
         
         # 尝试从常见库名称映射中获取
         mapped_id = self.config.common_library_names.get(library_name.lower())
         if mapped_id:
-            return LibraryResolutionResult(
-                library_name=library_name,
-                resolved_id=mapped_id,
-                description="Mapped from common library name"
-            )
+            return f"Mapped library ID: {mapped_id}"
         
         # 调用MCP工具解析
         try:
             result_str = await mcp_manager.call_tool("resolve-library-id", {"libraryName": library_name})
-            result_content = json.loads(result_str)
-            
-            # 解析返回的结果
-            return self._parse_resolve_result(library_name, result_content)
-            
+            # 直接返回原始文本内容，供LLM解析
+            return result_str
         except Exception as e:
             logger.error(f"Failed to resolve library ID for '{library_name}': {e}")
-            return LibraryResolutionResult(
-                library_name=library_name,
-                error=str(e)
-            )
+            return f"Error resolving library ID: {str(e)}"
     
     async def get_library_docs(self, mcp_manager, library_id: str, topic: Optional[str] = None, 
                               tokens: Optional[int] = None) -> ToolExecutionResult:
@@ -174,8 +163,8 @@ class ToolExecutionService:
                         # 如果没有提供库名称，尝试从查询中提取
                         library_name = self._extract_library_name_from_query(query)
                     
-                    result = await self.context7_service.resolve_library_id(mcp_manager, library_name)
-                    return json.dumps(result.__dict__, ensure_ascii=False)
+                    # 直接返回原始文本内容，供LLM解析
+                    return await self.context7_service.resolve_library_id(mcp_manager, library_name)
                 
                 elif tool_name == "get-library-docs":
                     library_id = tool_args.get("context7CompatibleLibraryID", "")
@@ -183,18 +172,19 @@ class ToolExecutionService:
                     tokens = tool_args.get("tokens")
                     
                     # 如果没有提供库ID，尝试先解析
+                    # 注意：现在resolve_library_id返回的是原始文本，需要LLM从中提取ID
                     if not library_id:
                         library_name = self._extract_library_name_from_query(query)
                         if library_name:
-                            resolve_result = await self.context7_service.resolve_library_id(mcp_manager, library_name)
-                            if resolve_result.is_success():
-                                library_id = resolve_result.resolved_id
+                            # 这里不再自动解析，而是让LLM在ReAct循环中处理
+                            return "Please use resolve-library-id first to find the correct library ID, then call get-library-docs with the precise ID."
                     
                     if library_id:
                         result = await self.context7_service.get_library_docs(mcp_manager, library_id, topic, tokens)
                         execution_time = time.time() - start_time
                         logger.info(f"Tool execution completed in {execution_time:.2f}s")
-                        return json.dumps(result.__dict__, ensure_ascii=False)
+                        # 使用to_dict()方法进行序列化
+                        return safe_json_dumps(result.to_dict(), ensure_ascii=False)
                     else:
                         return "Error: Cannot determine library ID for get-library-docs. Please provide a valid library ID or library name."
                 

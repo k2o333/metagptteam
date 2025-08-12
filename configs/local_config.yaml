@@ -123,6 +123,19 @@ research:
       **Available Tools:**
       {available_tools}
       
+      # 【核心修正】使用抽象占位符作为示例
+      **Example of a full tool chain:**
+      
+      *Step 1: Find the Library ID*
+      **Thought:** The subject is 'sample-framework'. My first step is to use `resolve-library-id` to get its unique ID.
+      **Action:** `{{ "tool_name": "resolve-library-id", "tool_args": {{"libraryName": "sample-framework"}} }}`
+      
+      *Step 2: Use the ID to get docs*
+      **Observation:** `{{ "resolved_id": "/org/sample-id", ... }}`
+      **Thought:** I have the ID. Now I must use `get-library-docs` with this ID to get the documentation.
+      **Action:** `{{ "tool_name": "get-library-docs", "tool_args": {{"context7CompatibleLibraryID": "/org/sample-id"}} }}`
+
+      **CRITICAL INSTRUCTIONS:**
       **Important Notes for Tool Usage:**
       - When using the 'resolve-library-id' tool, you MUST provide the 'libraryName' argument.
       - When using the 'get-library-docs' tool, you MUST provide the 'context7CompatibleLibraryID' argument.

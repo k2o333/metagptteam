@@ -58,3 +58,29 @@ class VersionControl:
                 new_file.write(original_file.read())
                 
         return new_file_path
+
+import json
+from enum import Enum
+from dataclasses import is_dataclass, asdict
+from typing import Any
+
+
+def _safe_encoder(obj: Any):
+    """A more robust JSON encoder default function."""
+    if isinstance(obj, Enum):
+        return obj.value
+    if is_dataclass(obj):
+        return asdict(obj)
+    # Add handlers for other types like datetime, Decimal, etc.
+    # ...
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def safe_json_dumps(data: Any, **kwargs) -> str:
+    """
+    A safer version of json.dumps that can automatically handle common non-serializable types.
+    """
+    if 'default' not in kwargs:
+        kwargs['default'] = _safe_encoder
+    
+    return json.dumps(data, **kwargs)

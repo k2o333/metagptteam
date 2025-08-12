@@ -20,6 +20,7 @@ from metagpt.schema import Message
 from hierarchical.utils_pkg.version_control import VersionControl
 from metagpt.team import Team
 from hierarchical.actions.research import Research
+from hierarchical.actions.research_model import ResearchConfig  # 【新增】导入ResearchConfig
 from hierarchical.rag.engines.docrag_engine import DocRAGEngine
 from metagpt.logs import logger
 
@@ -104,10 +105,17 @@ async def main(doc_path: str, prompt: str):
         mcp_manager = None
 
     # 4. Create team with ChangeCoordinator and SectionApplier roles
-    # Initialize Research Action
-    research_action = Research(context=ctx)
-    
-    # Initialize RAG engine for Research Action
+
+    # 【核心优化】在这里创建并配置 Research Action
+    # 从合并的配置中获取 'research' 部分
+    research_config_dict = merged_config_data.get("research", {})
+    # 使用我们在第1步中添加的工厂方法创建配置对象
+    research_config_obj = ResearchConfig.from_dict(research_config_dict)
+
+    # 在创建 Research Action 实例时，将配置对象注入
+    research_action = Research(context=ctx, config=research_config_obj)
+
+    # Initialize RAG engine for Research Action (这部分逻辑不变)
     try:
         persist_path = merged_config_data.get("docrag_persist_path")
         if persist_path:
